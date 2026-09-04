@@ -441,13 +441,14 @@
   <div class="toolbar no-print">
     <span>입고 운영 체크 · SV · 고객 · 자차/대물 · 360 손상</span>
     <a id="spLink" href="https://teslamotorsinc-my.sharepoint.com/:x:/r/personal/sangtlee_tesla_com/_layouts/15/Doc.aspx?sourcedoc=%7B5DC9F3E2-C1AD-4EB1-871F-EF051296F285%7D&amp;file=%25uc2a4%25ucf00%25uc974%20%25uad00%25ub9ac_%25uacf5%25uc720%25ud30c%25uc77c.xlsx&amp;wdLOR=cE48CE858-AEAB-43B5-BBD0-2725AF30CCCE&amp;fromShare=true&amp;action=default&amp;mobileredirect=true" target="_blank" rel="noopener">원본 열기</a>
-    <label class="file-btn" for="xlsxFile">엑셀 불러오기</label>
+    <button type="button" id="btnPickExcel">스케줄 파일 연결</button>
+    <button type="button" id="btnReloadExcel">다시 읽기</button>
     <input type="file" id="xlsxFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
     <button type="button" id="btnClearMarks">손상 표시 지우기</button>
     <button type="button" id="btnReset">양식 초기화</button>
     <button type="button" class="primary" id="btnPrint">인쇄 / PDF 저장</button>
   </div>
-  <div class="excel-bar no-print" id="loadStatus">스케줄 xlsx를 불러오거나 창에 끌어다 놓은 뒤 SV를 입력하세요. 원본 열기는 SharePoint 확인용입니다.</div>
+  <div class="excel-bar no-print" id="loadStatus">SharePoint 탭만 연 상태에서는 SV가 채워지지 않습니다. 「스케줄 파일 연결」로 저장된 xlsx를 한 번 고르면, 이후 SV 입력마다 그 파일을 다시 읽습니다.</div>
 
   <div class="wrap">
     <header class="page-head">
@@ -461,7 +462,7 @@
         <h2>접수 · 일정</h2>
         <div class="grid g4">
           <label class="f sv-cell">SV 번호
-            <input type="text" name="sv" id="svInput" placeholder="SV 입력 후 Enter" autocomplete="off" spellcheck="false" />
+            <input type="text" name="sv" id="svInput" placeholder="파일 연결 후 SV 입력" autocomplete="off" spellcheck="false" />
             <div id="svSuggest" class="sv-suggest"></div>
           </label>
           <label class="f">접수담당자<input type="text" name="advisor" /></label>
@@ -599,7 +600,18 @@
         { key: "claimNo", re: /접수번호|사고번호|claim/i },
         { key: "repairType", re: /수리\s*유형|^유형$|보증|보험유형|pay\s*type|자차|대물/i }
       ];
-      var state = { rows: [], headers: [], map: {}, sheetName: "", fileName: "" };
+      var FILE_HANDLE_DB = "dongtan-ops-excel";
+      var FILE_HANDLE_STORE = "handles";
+      var FILE_HANDLE_KEY = "schedule";
+      var state = {
+        rows: [],
+        headers: [],
+        map: {},
+        sheetName: "",
+        fileName: "",
+        fileHandle: null,
+        loading: null
+      };
       form.addEventListener("submit", function (e) { e.preventDefault(); });
 
       function todayISO() {
@@ -860,7 +872,7 @@
           return;
         }
         if (!state.rows.length) {
-          setStatus("엑셀을 먼저 불러오세요. 원본 열기는 SharePoint 확인용입니다.", "warn");
+          setStatus("스케줄 파일이 연결되지 않았습니다. 「스케줄 파일 연결」로 저장된 xlsx를 고르세요. SharePoint 탭만 연 상태에서는 읽을 수 없습니다.", "warn");
           return;
         }
         var svIdx = state.map.sv;
@@ -909,18 +921,64 @@
         suggestEl.style.display = hits.length ? "block" : "none";
       }
 
-      function ingestMatrix(matrix, sheetName, fileName) {
+      function ingestMatrix(matrix, sheetName, fileName, quiet) {
         var parsed = matrixToRows(matrix);
         state.sheetName = sheetName;
         state.fileName = fileName;
         state.headers = parsed.headers;
         state.rows = parsed.rows;
         state.map = autoMap(parsed.headers);
+        if (quiet) return;
         var kind = state.rows.length ? "ok" : "warn";
-        setStatus(fileName + " · 시트 «" + sheetName + "» · " + state.rows.length + "건. SV를 입력하세요.", kind);
+        setStatus(fileName + " 연결됨 · 시트 «" + sheetName + "» · " + state.rows.length + "건. SV를 입력하세요.", kind);
       }
 
-      function readWorkbook(buf, fileName) {
+      function openHandleDb() {
+        return new Promise(function (resolve, reject) {
+          var req = indexedDB.open(FILE_HANDLE_DB, 1);
+          req.onupgradeneeded = function () {
+            req.result.createObjectStore(FILE_HANDLE_STORE);
+          };
+          req.onsuccess = function () { resolve(req.result); };
+          req.onerror = function () { reject(req.error); };
+        });
+      }
+
+      function saveFileHandle(handle) {
+        if (!handle) return Promise.resolve();
+        return openHandleDb().then(function (db) {
+          return new Promise(function (resolve, reject) {
+            var tx = db.transaction(FILE_HANDLE_STORE, "readwrite");
+            tx.objectStore(FILE_HANDLE_STORE).put(handle, FILE_HANDLE_KEY);
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { reject(tx.error); };
+          });
+        }).catch(function () { /* ignore */ });
+      }
+
+      function loadFileHandle() {
+        return openHandleDb().then(function (db) {
+          return new Promise(function (resolve, reject) {
+            var tx = db.transaction(FILE_HANDLE_STORE, "readonly");
+            var req = tx.objectStore(FILE_HANDLE_STORE).get(FILE_HANDLE_KEY);
+            req.onsuccess = function () { resolve(req.result || null); };
+            req.onerror = function () { reject(req.error); };
+          });
+        }).catch(function () { return null; });
+      }
+
+      function ensureHandlePermission(handle) {
+        if (!handle || !handle.queryPermission) return Promise.resolve(false);
+        return handle.queryPermission({ mode: "read" }).then(function (st) {
+          if (st === "granted") return true;
+          if (!handle.requestPermission) return false;
+          return handle.requestPermission({ mode: "read" }).then(function (st2) {
+            return st2 === "granted";
+          });
+        }).catch(function () { return false; });
+      }
+
+      function readWorkbook(buf, fileName, quiet) {
         if (typeof XLSX === "undefined") {
           setStatus("엑셀 라이브러리를 불러오지 못했습니다. 칸을 직접 입력하세요.", "err");
           return;
@@ -934,31 +992,107 @@
         var sheetName = pickSheet(names);
         var ws = wb.Sheets[sheetName];
         var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
-        ingestMatrix(matrix, sheetName, fileName);
+        ingestMatrix(matrix, sheetName, fileName, quiet);
+      }
+
+      function readFileBlob(file, quiet) {
+        return new Promise(function (resolve, reject) {
+          var name = (file && file.name) || SHAREPOINT_FILE;
+          var isCsv = /\.csv$/i.test(name);
+          var reader = new FileReader();
+          reader.onerror = function () { reject(new Error("파일을 읽지 못했습니다.")); };
+          reader.onload = function () {
+            try {
+              if (isCsv) ingestMatrix(parseCsv(String(reader.result || "")), "CSV", name, quiet);
+              else readWorkbook(new Uint8Array(reader.result), name, quiet);
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
+          };
+          if (isCsv) reader.readAsText(file, "utf-8");
+          else reader.readAsArrayBuffer(file);
+        });
       }
 
       function onFile(file) {
-        if (!file) return;
-        var name = file.name || SHAREPOINT_FILE;
-        setStatus(name + " 읽는 중…");
-        var isCsv = /\.csv$/i.test(name);
-        var reader = new FileReader();
-        reader.onerror = function () { setStatus("파일을 읽지 못했습니다.", "err"); };
-        if (isCsv) {
-          reader.onload = function () {
-            try { ingestMatrix(parseCsv(String(reader.result || "")), "CSV", name); }
-            catch (e) { setStatus("CSV 파싱 오류: " + e.message, "err"); }
-          };
-          reader.readAsText(file, "utf-8");
-        } else {
-          reader.onload = function () {
-            try { readWorkbook(new Uint8Array(reader.result), name); }
-            catch (e) { setStatus("엑셀 파싱 오류: " + e.message, "err"); }
-          };
-          reader.readAsArrayBuffer(file);
-        }
+        if (!file) return Promise.resolve();
+        setStatus((file.name || SHAREPOINT_FILE) + " 읽는 중…");
+        return readFileBlob(file, false);
       }
 
+      function reloadFromHandle(quiet) {
+        if (!state.fileHandle) return Promise.resolve(false);
+        return ensureHandlePermission(state.fileHandle).then(function (ok) {
+          if (!ok) return false;
+          return state.fileHandle.getFile().then(function (file) {
+            return readFileBlob(file, quiet).then(function () { return true; });
+          });
+        }).catch(function () { return false; });
+      }
+
+      function connectSavedFile() {
+        if (!window.showOpenFilePicker) {
+          document.getElementById("xlsxFile").click();
+          return;
+        }
+        window.showOpenFilePicker({
+          multiple: false,
+          types: [{
+            description: "Excel",
+            accept: {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+              "application/vnd.ms-excel": [".xls"],
+              "text/csv": [".csv"]
+            }
+          }]
+        }).then(function (handles) {
+          var handle = handles && handles[0];
+          if (!handle) return;
+          state.fileHandle = handle;
+          saveFileHandle(handle);
+          return handle.getFile().then(function (file) {
+            setStatus(file.name + " 연결 중…");
+            return readFileBlob(file, false);
+          });
+        }).catch(function (e) {
+          if (e && e.name === "AbortError") return;
+          setStatus("파일을 연결하지 못했습니다. 다시 선택하세요.", "err");
+        });
+      }
+
+      function lookupAfterLoad(q) {
+        var key = normSv(q);
+        if (!key) {
+          setStatus("SV를 입력하세요.", "err");
+          return;
+        }
+        var run = function () { lookup(key); };
+        if (state.fileHandle) {
+          setStatus("최신 스케줄 읽는 중…");
+          reloadFromHandle(true).then(function (ok) {
+            if (!ok && !state.rows.length) {
+              setStatus("저장된 파일을 다시 연결하세요. SharePoint 탭만 연 상태에서는 읽을 수 없습니다.", "warn");
+              return;
+            }
+            run();
+          });
+          return;
+        }
+        run();
+      }
+
+      document.getElementById("btnPickExcel").addEventListener("click", connectSavedFile);
+      document.getElementById("btnReloadExcel").addEventListener("click", function () {
+        if (state.fileHandle) {
+          setStatus("다시 읽는 중…");
+          reloadFromHandle(false).then(function (ok) {
+            if (!ok) setStatus("파일을 다시 연결하세요.", "warn");
+          });
+          return;
+        }
+        document.getElementById("xlsxFile").click();
+      });
       document.getElementById("xlsxFile").addEventListener("change", function (e) {
         onFile(e.target.files && e.target.files[0]);
         e.target.value = "";
@@ -973,20 +1107,49 @@
       document.addEventListener("drop", function (e) {
         e.preventDefault();
         document.body.classList.remove("drop-on");
-        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (f) onFile(f);
+        var item = e.dataTransfer && e.dataTransfer.items && e.dataTransfer.items[0];
+        if (item && item.getAsFileSystemHandle) {
+          item.getAsFileSystemHandle().then(function (handle) {
+            if (!handle || handle.kind !== "file") {
+              var f = e.dataTransfer.files && e.dataTransfer.files[0];
+              if (f) onFile(f);
+              return;
+            }
+            state.fileHandle = handle;
+            saveFileHandle(handle);
+            return handle.getFile().then(function (file) {
+              setStatus(file.name + " 연결 중…");
+              return readFileBlob(file, false);
+            });
+          }).catch(function () {
+            var f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) onFile(f);
+          });
+          return;
+        }
+        var dropped = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (dropped) onFile(dropped);
       });
       form.sv.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
           suggestEl.style.display = "none";
-          lookup(form.sv.value);
+          lookupAfterLoad(form.sv.value);
         }
       });
       form.sv.addEventListener("input", function () { suggest(form.sv.value); });
       form.sv.addEventListener("blur", function () {
         setTimeout(function () { suggestEl.style.display = "none"; }, 180);
-        if (form.sv.value) lookup(form.sv.value);
+        if (form.sv.value) lookupAfterLoad(form.sv.value);
+      });
+      loadFileHandle().then(function (handle) {
+        if (!handle) return;
+        state.fileHandle = handle;
+        reloadFromHandle(false).then(function (ok) {
+          if (!ok) {
+            setStatus("이전에 연결한 스케줄 파일이 있습니다. 「스케줄 파일 연결」을 한 번 누르면 이어서 씁니다.", "warn");
+          }
+        });
       });
 
       document.querySelectorAll("#legend button").forEach(function (btn) {
