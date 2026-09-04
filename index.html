@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tesla Collision Dongtan Center</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --ink: #171a20;
@@ -51,7 +50,6 @@
       align-items: center;
     }
     .toolbar button.primary { background: var(--accent); color: #fff; }
-    .toolbar input[type="file"] { display: none; }
     .excel-bar {
       display: flex;
       flex-wrap: wrap;
@@ -66,7 +64,35 @@
     .excel-bar.ok { color: #047857; }
     .excel-bar.warn { color: #b45309; }
     .excel-bar.err { color: #b91c1c; }
-    body.drop-on { outline: 3px dashed var(--accent); outline-offset: -6px; }
+    .paste-panel {
+      display: block;
+      padding: 0.55rem 1rem 0.75rem;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .paste-panel.closed { display: none; }
+    .paste-panel textarea {
+      width: 100%;
+      min-height: 4.5rem;
+      font: inherit;
+      font-size: 0.82rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+    }
+    .paste-panel .hint { margin: 0.35rem 0 0.45rem; font-size: 0.8rem; color: var(--muted); }
+    .paste-panel .row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+    .paste-panel button {
+      font: inherit;
+      border: 0;
+      border-radius: 8px;
+      padding: 0.38rem 0.75rem;
+      cursor: pointer;
+      background: var(--ink);
+      color: #fff;
+    }
+    .paste-panel button#btnClearPaste { background: #eceff3; color: var(--ink); }
     .sv-cell { position: relative; }
     .sv-suggest {
       display: none;
@@ -375,6 +401,9 @@
       gap: 0.75rem;
       align-items: stretch;
     }
+    .dmg-row.notes-split {
+      grid-template-columns: 2fr 1fr 1fr;
+    }
     .dmg-row > .card {
       margin-bottom: 0;
       display: flex;
@@ -382,6 +411,8 @@
       min-height: 0;
       overflow: hidden;
     }
+    .dmg-row .notes-right { display: none; }
+    .dmg-row.notes-split .notes-right { display: flex; }
     .dmg-row .memo-field {
       flex: 1;
       display: flex;
@@ -414,6 +445,9 @@
       .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
       .g2 { grid-template-columns: 1fr 1fr !important; }
       .dmg-row { grid-template-columns: 1fr 1fr !important; }
+      .dmg-row.notes-split { grid-template-columns: 2fr 1fr 1fr !important; }
+      .dmg-row .notes-right { display: none !important; }
+      .dmg-row.notes-split .notes-right { display: flex !important; }
       .orbit {
         display: grid !important;
         grid-template-columns: 0.8fr 1.4fr 0.8fr !important;
@@ -440,15 +474,21 @@
 <body>
   <div class="toolbar no-print">
     <span>입고 운영 체크 · SV · 고객 · 자차/대물 · 360 손상</span>
-    <a id="spLink" href="https://teslamotorsinc-my.sharepoint.com/:x:/r/personal/sangtlee_tesla_com/_layouts/15/Doc.aspx?sourcedoc=%7B5DC9F3E2-C1AD-4EB1-871F-EF051296F285%7D&amp;file=%25uc2a4%25ucf00%25uc974%20%25uad00%25ub9ac_%25uacf5%25uc720%25ud30c%25uc77c.xlsx&amp;wdLOR=cE48CE858-AEAB-43B5-BBD0-2725AF30CCCE&amp;fromShare=true&amp;action=default&amp;mobileredirect=true" target="_blank" rel="noopener">원본 열기</a>
-    <button type="button" id="btnPickExcel">스케줄 파일 연결</button>
-    <button type="button" id="btnReloadExcel">다시 읽기</button>
-    <input type="file" id="xlsxFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+    <a id="spLink" href="https://teslamotorsinc.sharepoint.com/sites/DongtanCenter/Shared%20Documents/IB%20%EA%B3%B5%EC%9C%A0%ED%8C%8C%EC%9D%BC/%EC%8A%A4%EC%BC%80%EC%A5%B4%20%EA%B4%80%EB%A6%AC_%EA%B3%B5%EC%9C%A0%ED%8C%8C%EC%9D%BC.xlsx?web=1" target="_blank" rel="noopener">원본 열기</a>
+    <button type="button" id="btnPasteExcel">붙여넣기 숨기기</button>
     <button type="button" id="btnClearMarks">손상 표시 지우기</button>
     <button type="button" id="btnReset">양식 초기화</button>
     <button type="button" class="primary" id="btnPrint">인쇄 / PDF 저장</button>
   </div>
-  <div class="excel-bar no-print" id="loadStatus">SharePoint 탭만 연 상태에서는 SV가 채워지지 않습니다. 「스케줄 파일 연결」로 저장된 xlsx를 한 번 고르면, 이후 SV 입력마다 그 파일을 다시 읽습니다.</div>
+  <div class="excel-bar no-print" id="loadStatus">스케줄관리에서 헤더와 행을 복사한 뒤 아래에 붙여 넣으세요.</div>
+  <div class="paste-panel no-print" id="pastePanel">
+    <p class="hint">스케줄관리 첫 줄(SV, 입고, 출고, Vin, 차종, 차량번호, 고객성함, 연락처, 작업내용, 견적자, 보험사)과 해당 행을 함께 복사한 뒤 붙여 넣으세요. 보험사 칸은 회사명과 자차/대물을 함께 읽습니다.</p>
+    <textarea id="pasteBox" placeholder="엑셀에서 복사한 칸을 여기에 붙여 넣기 (Ctrl+V)"></textarea>
+    <div class="row">
+      <button type="button" id="btnApplyPaste">붙여넣은 행 반영</button>
+      <button type="button" id="btnClearPaste">붙여넣기 비우기</button>
+    </div>
+  </div>
 
   <div class="wrap">
     <header class="page-head">
@@ -462,7 +502,7 @@
         <h2>접수 · 일정</h2>
         <div class="grid g4">
           <label class="f sv-cell">SV 번호
-            <input type="text" name="sv" id="svInput" placeholder="파일 연결 후 SV 입력" autocomplete="off" spellcheck="false" />
+            <input type="text" name="sv" id="svInput" placeholder="SV 입력" autocomplete="off" spellcheck="false" />
             <div id="svSuggest" class="sv-suggest"></div>
           </label>
           <label class="f">접수담당자<input type="text" name="advisor" /></label>
@@ -533,7 +573,7 @@
         </div>
       </section>
 
-      <div class="dmg-row">
+      <div class="dmg-row" id="dmgRow">
       <section class="card">
         <h2>데미지 확인 · 360°</h2>
         <div class="code-btns no-print" id="legend">
@@ -569,13 +609,20 @@
       <section class="card">
         <h2>작업내용</h2>
         <label class="f memo-field">부위
-          <textarea class="memo" name="damageNotes" placeholder="예: 좌측 뒤 펜더 스크래치, 후진 출차 중 기둥 접촉"></textarea>
+          <textarea class="memo" name="damageNotesLeft" placeholder="작업내용 앞부분"></textarea>
+        </label>
+      </section>
+      <section class="card notes-right">
+        <h2>작업내용</h2>
+        <label class="f memo-field">이어서
+          <textarea class="memo" name="damageNotesRight" placeholder="작업내용 뒷부분"></textarea>
         </label>
       </section>
       </div>
     </form>
   </div>
 
+  <script type="application/json" id="svLookup">{"updatedAt":"","source":"","sheet":"","rows":[]}</script>
   <script>
     (function () {
       var currentColor = "#22a45a";
@@ -584,33 +631,12 @@
       var otherWrap = document.getElementById("carrierOtherWrap");
       var statusEl = document.getElementById("loadStatus");
       var suggestEl = document.getElementById("svSuggest");
-      var SHAREPOINT_FILE = "스케줄 관리_공유파일.xlsx";
-      var SKIP_SHEETS = /작업지시|보험사|외주|로니카|회수|부품|upcoming|sheet1|추가/i;
-      var FIELDS = [
-        { key: "sv", letterHint: "C", re: /^(sv|sv#|sv번호|ro|ro#|작업번호|서비스번호)$/i },
-        { key: "advisor", re: /접수|담당자|advisor|^sa$|어드바이저/i },
-        { key: "plate", re: /차량번호|번호판|plate|licen/i },
-        { key: "vin", re: /차대|vin/i },
-        { key: "model", re: /차종|^모델$|model/i },
-        { key: "name", letterHint: "J", re: /고객성명|고객명|^성명$|^이름$|customer\s*name/i },
-        { key: "phone", re: /연락처|전화|휴대폰|^hp$|phone|mobile/i },
-        { key: "inDate", re: /입고일|^입고$/i },
-        { key: "outDate", re: /출고일|^출고$/i },
-        { key: "insurer", re: /보험사|보험회사|carrier/i },
-        { key: "claimNo", re: /접수번호|사고번호|claim/i },
-        { key: "repairType", re: /수리\s*유형|^유형$|보증|보험유형|pay\s*type|자차|대물/i }
-      ];
-      var FILE_HANDLE_DB = "dongtan-ops-excel";
-      var FILE_HANDLE_STORE = "handles";
-      var FILE_HANDLE_KEY = "schedule";
+      var EMPTY_HINT = "스케줄관리에서 헤더와 행을 복사한 뒤 아래에 붙여 넣으세요.";
       var state = {
         rows: [],
-        headers: [],
-        map: {},
-        sheetName: "",
-        fileName: "",
-        fileHandle: null,
-        loading: null
+        updatedAt: "",
+        source: "",
+        sheetName: ""
       };
       form.addEventListener("submit", function (e) { e.preventDefault(); });
 
@@ -632,24 +658,6 @@
       function setStatus(msg, kind) {
         statusEl.textContent = msg;
         statusEl.className = "excel-bar no-print" + (kind ? " " + kind : "");
-      }
-
-      function colLetter(idx) {
-        var n = idx + 1;
-        var s = "";
-        while (n > 0) {
-          var m = (n - 1) % 26;
-          s = String.fromCharCode(65 + m) + s;
-          n = Math.floor((n - 1) / 26);
-        }
-        return s;
-      }
-
-      function letterIndex(letter) {
-        var n = 0;
-        var s = String(letter || "").toUpperCase();
-        for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
-        return n - 1;
       }
 
       function normSv(v) {
@@ -702,103 +710,16 @@
           if (yy < 100) yy += 2000;
           return formatYmd(yy, Number(md[1]), Number(md[2]));
         }
+        var mdOnly = s.match(/^(\d{1,2})[./-](\d{1,2})$/);
+        if (mdOnly) {
+          return formatYmd(new Date().getFullYear(), Number(mdOnly[1]), Number(mdOnly[2]));
+        }
         return "";
       }
 
-      function parseCsv(text) {
-        var rows = [];
-        var row = [];
-        var cur = "";
-        var q = false;
-        var src = text.replace(/^\uFEFF/, "");
-        for (var i = 0; i < src.length; i++) {
-          var ch = src[i];
-          if (q) {
-            if (ch === '"') {
-              if (src[i + 1] === '"') { cur += '"'; i++; }
-              else q = false;
-            } else cur += ch;
-          } else if (ch === '"') q = true;
-          else if (ch === ",") { row.push(cur); cur = ""; }
-          else if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-          else if (ch !== "\r") cur += ch;
-        }
-        if (cur.length || row.length) { row.push(cur); rows.push(row); }
-        return rows;
-      }
-
-      function headerRowIndex(matrix) {
-        var max = Math.min(matrix.length, 12);
-        var best = 0;
-        var bestScore = -1;
-        for (var r = 0; r < max; r++) {
-          var line = matrix[r] || [];
-          var texts = line.map(cellStr).filter(Boolean);
-          if (!texts.length) continue;
-          var score = texts.length;
-          var joined = texts.join(" ");
-          if (/sv|차량|고객|vin|입고/i.test(joined)) score += 8;
-          if (texts.filter(function (t) { return /^sv/i.test(t); }).length) score += 4;
-          if (bestScore < score) { bestScore = score; best = r; }
-        }
-        return best;
-      }
-
-      function matrixToRows(matrix) {
-        var hi = headerRowIndex(matrix);
-        var headerCells = matrix[hi] || [];
-        var headers = headerCells.map(function (h, i) {
-          var t = cellStr(h);
-          return t || ("열" + colLetter(i));
-        });
-        var rows = [];
-        for (var r = hi + 1; r < matrix.length; r++) {
-          var line = matrix[r] || [];
-          if (!line.some(function (c) { return cellStr(c) !== ""; })) continue;
-          rows.push({ _cells: line.slice() });
-        }
-        return {
-          headers: headers.map(function (h, i) { return { name: h, letter: colLetter(i), index: i }; }),
-          rows: rows
-        };
-      }
-
-      function pickSheet(names) {
-        var exact = names.find(function (n) {
-          return /스케줄\s*관리/.test(n) || n.replace(/\s/g, "") === "스케줄관리";
-        });
-        if (exact) return exact;
-        var data = names.filter(function (n) { return !SKIP_SHEETS.test(n); });
-        return data[0] || names[0];
-      }
-
-      function autoMap(headers) {
-        var map = {};
-        var used = {};
-        FIELDS.forEach(function (f) {
-          var hit = headers.find(function (h) { return !used[h.index] && f.re.test(h.name); });
-          if (hit) {
-            map[f.key] = hit.index;
-            used[hit.index] = true;
-          }
-        });
-        FIELDS.forEach(function (f) {
-          if (map[f.key] != null || !f.letterHint) return;
-          var idx = letterIndex(f.letterHint);
-          if (idx >= 0 && idx < headers.length && !used[idx]) {
-            map[f.key] = idx;
-            used[idx] = true;
-          }
-        });
-        if (map.sv == null && headers.length > 2) map.sv = 2;
-        if (map.name == null && headers.length > 9) map.name = 9;
-        return map;
-      }
-
       function valFrom(rec, key) {
-        var idx = state.map[key];
-        if (idx == null) return "";
-        return rec._cells[idx];
+        if (!rec) return "";
+        return rec[key];
       }
 
       function pickModel(raw) {
@@ -810,6 +731,22 @@
         if (s === "Y" || /MODELY|모델Y|^MY$/.test(s)) return "Y";
         if (/CYBER|사이버|^C$|^CT$/.test(s)) return "C";
         return "";
+      }
+
+      function parseInsurerField(raw) {
+        var s = cellStr(raw);
+        var own = /자차/.test(s);
+        var third = /대물/.test(s);
+        var cover = [];
+        if (own) cover.push("자차");
+        if (third) cover.push("대물");
+        var name = s
+          .replace(/자차\/대물|대물\/자차|자차\s*[·/,+\-|]\s*대물|대물\s*[·/,+\-|]\s*자차/g, " ")
+          .replace(/자차|대물/g, " ")
+          .replace(/[()\[\]\/·,+\-|]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        return { name: name, cover: cover.join(" ") };
       }
 
       function setCarrier(raw) {
@@ -844,6 +781,204 @@
         });
       }
 
+      function formatWorkNotes(raw) {
+        var s = cellStr(raw);
+        if (!s) return "";
+        return s.split("/").map(function (part) {
+          return part.trim();
+        }).filter(Boolean).join("\n");
+      }
+
+      var dmgRow = document.getElementById("dmgRow");
+      var notesSplitTimer = 0;
+
+      function joinedWorkNotes() {
+        var a = (form.damageNotesLeft.value || "").trim();
+        var b = (form.damageNotesRight.value || "").trim();
+        return [a, b].filter(Boolean).join("\n");
+      }
+
+      function applyNotesLayout(text) {
+        dmgRow.classList.remove("notes-split");
+        form.damageNotesLeft.value = text || "";
+        form.damageNotesRight.value = "";
+        markPanelsFromNotes();
+        if (!text) return;
+        if (notesSplitTimer) window.clearTimeout(notesSplitTimer);
+        notesSplitTimer = window.setTimeout(function () {
+          notesSplitTimer = 0;
+          var el = form.damageNotesLeft;
+          if (el.scrollHeight <= el.clientHeight + 2) return;
+          var lines = text.split("\n");
+          var mid = Math.ceil(lines.length / 2);
+          dmgRow.classList.add("notes-split");
+          form.damageNotesLeft.value = lines.slice(0, mid).join("\n");
+          form.damageNotesRight.value = lines.slice(mid).join("\n");
+          markPanelsFromNotes();
+        }, 0);
+      }
+
+      function setWorkNotes(raw) {
+        applyNotesLayout(formatWorkNotes(raw));
+      }
+
+      function clearAutoMarks() {
+        document.querySelectorAll(".dmg-marker.auto").forEach(function (m) { m.remove(); });
+      }
+
+      var INNER = {
+        front: { x0: 12, x1: 88, y0: 14, y1: 92 },
+        rear: { x0: 14, x1: 86, y0: 16, y1: 90 },
+        left: { x0: 22, x1: 78, y0: 10, y1: 90 },
+        right: { x0: 22, x1: 78, y0: 10, y1: 90 },
+        top: { x0: 16, x1: 84, y0: 10, y1: 90 }
+      };
+
+      function clamp(n, lo, hi) {
+        return Math.max(lo, Math.min(hi, n));
+      }
+
+      function addAutoDot(view, x, y) {
+        var box = document.querySelector('.car-hit[data-view="' + view + '"]');
+        if (!box) return;
+        var img = box.querySelector("img");
+        var inner = INNER[view] || { x0: 25, x1: 75, y0: 20, y1: 80 };
+        x = clamp(x, inner.x0, inner.x1);
+        y = clamp(y, inner.y0, inner.y1);
+        var left = x;
+        var top = y;
+        if (img) {
+          var br = box.getBoundingClientRect();
+          var ir = img.getBoundingClientRect();
+          if (br.width && br.height && ir.width && ir.height) {
+            left = ((ir.left - br.left) + ir.width * x / 100) / br.width * 100;
+            top = ((ir.top - br.top) + ir.height * y / 100) / br.height * 100;
+          }
+        }
+        var d = document.createElement("div");
+        d.className = "dmg-marker auto";
+        d.style.left = left + "%";
+        d.style.top = top + "%";
+        d.style.background = "#22a45a";
+        box.appendChild(d);
+      }
+
+      function lineHasLeft(s) {
+        return /좌/.test(s);
+      }
+      function lineHasRight(s) {
+        return /우/.test(s);
+      }
+      function bothSides(s) {
+        return (lineHasLeft(s) && lineHasRight(s)) || (!lineHasLeft(s) && !lineHasRight(s));
+      }
+
+      function markPanelsFromNotes() {
+        clearAutoMarks();
+        var text = joinedWorkNotes();
+        if (!text) return;
+        var seen = {};
+        function add(view, x, y) {
+          var k = view + ":" + x + ":" + y;
+          if (seen[k]) return;
+          seen[k] = 1;
+          addAutoDot(view, x, y);
+        }
+        function addSides(s, lx, ly, rx, ry) {
+          var L = lineHasLeft(s);
+          var R = lineHasRight(s);
+          if (!L && !R) { L = true; R = true; }
+          if (L) add("left", lx, ly);
+          if (R) add("right", rx, ry);
+        }
+        text.split(/\n+/).forEach(function (line) {
+          var s = String(line || "").replace(/\s+/g, "");
+          if (!s) return;
+
+          if (/사이드미러|미러/.test(s)) {
+            addSides(s, 62, 22, 62, 22);
+            return;
+          }
+          if (/도어유리/.test(s)) {
+            addSides(s, 56, 44, 56, 44);
+            return;
+          }
+          if (/앞유리|윈드실드|윈드쉴드/.test(s)) {
+            add("front", 50, 32);
+            return;
+          }
+          if (/리어유리|뒷유리|리어글라스/.test(s)) {
+            add("rear", 50, 22);
+            return;
+          }
+          if (/루프유리|선루프|루프글라스/.test(s)) {
+            add("top", 50, 48);
+            return;
+          }
+          if (/리어페시아|후면페시아|뒤페시아|리어범퍼|후면범퍼|뒤범퍼/.test(s) || ((/페시아|범퍼/.test(s)) && /뒤|후/.test(s))) {
+            var L = lineHasLeft(s);
+            var R = lineHasRight(s);
+            if (L || R) {
+              if (L) add("rear", 18, 48);
+              if (R) add("rear", 82, 48);
+            } else {
+              add("rear", 50, 62);
+            }
+            return;
+          }
+          if (/페시아|앞범퍼|전면범퍼|프론트범퍼/.test(s) || (/범퍼/.test(s) && /앞|전/.test(s))) {
+            add("front", 50, 70);
+            return;
+          }
+          if (/후드|본넷|본네트/.test(s)) {
+            add("front", 50, 44);
+            return;
+          }
+          if (/트렁크|테일게이트/.test(s)) {
+            add("rear", 50, 36);
+            return;
+          }
+          if (/리버스램프|테일램프|후미등|리어램프/.test(s) || (/램프|라이트/.test(s) && /뒤|후/.test(s))) {
+            if (lineHasLeft(s) && !lineHasRight(s)) add("rear", 18, 28);
+            else if (lineHasRight(s) && !lineHasLeft(s)) add("rear", 82, 28);
+            else {
+              add("rear", 18, 28);
+              add("rear", 82, 28);
+            }
+            return;
+          }
+          if (/헤드램프|전조등|램프|라이트/.test(s)) {
+            if (lineHasLeft(s) && !lineHasRight(s)) add("front", 20, 58);
+            else if (lineHasRight(s) && !lineHasLeft(s)) add("front", 80, 58);
+            else {
+              add("front", 20, 58);
+              add("front", 80, 58);
+            }
+            return;
+          }
+          if (/도어/.test(s)) {
+            addSides(s, 50, 48, 50, 48);
+            return;
+          }
+          if (/휠/.test(s)) {
+            var frontW = /앞|전방|프론트/.test(s);
+            var rearW = /뒤|후방|리어/.test(s);
+            var y = frontW ? 24 : (rearW ? 74 : 48);
+            if (frontW && rearW) {
+              addSides(s, 36, 24, 36, 24);
+              addSides(s, 36, 74, 36, 74);
+            } else {
+              addSides(s, 36, y, 36, y);
+            }
+            return;
+          }
+          if (/펜더|쿼터|사이드패널|외판/.test(s) || /패널/.test(s)) {
+            var y = /뒤|후|쿼터/.test(s) ? 70 : (/앞|전/.test(s) ? 26 : 48);
+            addSides(s, 50, y, 50, y);
+          }
+        });
+      }
+
       function applyRow(rec, updateSv) {
         var sv = cellStr(valFrom(rec, "sv"));
         if (updateSv && sv) form.sv.value = sv;
@@ -860,9 +995,11 @@
         form.querySelectorAll('input[name="model"]').forEach(function (el) {
           el.checked = el.value === model;
         });
-        setCarrier(valFrom(rec, "insurer"));
+        var ins = parseInsurerField(valFrom(rec, "insurer"));
+        setCarrier(ins.name);
         form.claim.value = cellStr(valFrom(rec, "claimNo"));
-        setCover(valFrom(rec, "repairType"));
+        setCover(cellStr(valFrom(rec, "repairType")) || ins.cover);
+        setWorkNotes(valFrom(rec, "workNotes"));
       }
 
       function lookup(q) {
@@ -872,284 +1009,417 @@
           return;
         }
         if (!state.rows.length) {
-          setStatus("스케줄 파일이 연결되지 않았습니다. 「스케줄 파일 연결」로 저장된 xlsx를 고르세요. SharePoint 탭만 연 상태에서는 읽을 수 없습니다.", "warn");
+          setStatus(EMPTY_HINT, "warn");
           return;
         }
-        var svIdx = state.map.sv;
-        if (svIdx == null) {
-          setStatus("SV 열을 찾지 못했습니다.", "err");
-          return;
-        }
-        var exact = state.rows.find(function (r) { return normSv(r._cells[svIdx]) === key; });
+        var exact = state.rows.find(function (r) { return normSv(r.sv) === key; });
         var loose = exact || state.rows.find(function (r) {
-          return normSv(r._cells[svIdx]).indexOf(key) !== -1;
+          return normSv(r.sv).indexOf(key) !== -1;
         });
         if (!loose) {
           setStatus("«" + key + "» 를 목록에서 찾지 못했습니다. 칸을 직접 입력하세요.", "warn");
           return;
         }
         applyRow(loose, true);
-        setStatus((exact ? "정확 일치" : "부분 일치") + " · " + cellStr(loose._cells[svIdx]) + " · " + state.fileName + " · " + state.rows.length + "건", "ok");
+        setStatus((exact ? "정확 일치" : "부분 일치") + " · " + cellStr(loose.sv) + " · " + state.rows.length + "건", "ok");
       }
 
       function suggest(q) {
         var key = normSv(q);
-        var svIdx = state.map.sv;
-        if (!key || key.length < 3 || svIdx == null || !state.rows.length) {
+        if (!key || key.length < 3 || !state.rows.length) {
           suggestEl.style.display = "none";
           return;
         }
         var hits = [];
         for (var i = 0; i < state.rows.length && hits.length < 12; i++) {
-          var sv = normSv(state.rows[i]._cells[svIdx]);
+          var sv = normSv(state.rows[i].sv);
           if (sv.indexOf(key) !== -1) hits.push(state.rows[i]);
         }
         suggestEl.innerHTML = "";
         hits.forEach(function (r) {
           var b = document.createElement("button");
           b.type = "button";
-          var plate = cellStr(valFrom(r, "plate"));
-          b.textContent = cellStr(r._cells[svIdx]) + (plate ? "  ·  " + plate : "");
+          var plate = cellStr(r.plate);
+          b.textContent = cellStr(r.sv) + (plate ? "  ·  " + plate : "");
           b.addEventListener("mousedown", function (e) {
             e.preventDefault();
             applyRow(r, true);
             suggestEl.style.display = "none";
-            setStatus("목록에서 선택 · " + cellStr(r._cells[svIdx]), "ok");
+            setStatus("목록에서 선택 · " + cellStr(r.sv), "ok");
           });
           suggestEl.appendChild(b);
         });
         suggestEl.style.display = hits.length ? "block" : "none";
       }
 
-      function ingestMatrix(matrix, sheetName, fileName, quiet) {
-        var parsed = matrixToRows(matrix);
-        state.sheetName = sheetName;
-        state.fileName = fileName;
-        state.headers = parsed.headers;
-        state.rows = parsed.rows;
-        state.map = autoMap(parsed.headers);
-        if (quiet) return;
-        var kind = state.rows.length ? "ok" : "warn";
-        setStatus(fileName + " 연결됨 · 시트 «" + sheetName + "» · " + state.rows.length + "건. SV를 입력하세요.", kind);
+      function looksLikeSv(v) {
+        var s = String(v == null ? "" : v).trim();
+        return /^SV[0-9A-Z]{4,}$/i.test(normSv(s.split(/\s/)[0] || s));
       }
 
-      function openHandleDb() {
-        return new Promise(function (resolve, reject) {
-          var req = indexedDB.open(FILE_HANDLE_DB, 1);
-          req.onupgradeneeded = function () {
-            req.result.createObjectStore(FILE_HANDLE_STORE);
-          };
-          req.onsuccess = function () { resolve(req.result); };
-          req.onerror = function () { reject(req.error); };
+      function extractSv(v) {
+        var m = String(v == null ? "" : v).match(/SV[0-9A-Z]{4,}/i);
+        return m ? m[0].toUpperCase() : "";
+      }
+
+      function matrixFromHtml(html) {
+        if (!html || html.indexOf("<") === -1) return [];
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var rows = [];
+        var trs = doc.querySelectorAll("tr");
+        for (var r = 0; r < trs.length; r++) {
+          var cells = [];
+          var tds = trs[r].querySelectorAll("td, th");
+          for (var c = 0; c < tds.length; c++) {
+            cells.push((tds[c].innerText || tds[c].textContent || "").replace(/\u00a0/g, " ").trim());
+          }
+          if (cells.some(function (x) { return x; })) rows.push(cells);
+        }
+        return rows;
+      }
+
+      function splitLooseSchedule(s) {
+        var text = String(s || "").replace(/\u00a0/g, " ").trim();
+        if (!text) return [];
+        if (text.indexOf("\t") !== -1) {
+          return text.split("\t").map(function (c) { return c.trim(); });
+        }
+        var sv = extractSv(text);
+        if (!sv) return [text];
+        var rest = text.replace(/^[^\t]*?SV[0-9A-Z]{4,}/i, "").trim();
+        var dm = rest.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}\/\d{1,2})\s+([\s\S]*)$/);
+        if (!dm) return [sv].concat(rest ? rest.split(/\s{2,}/) : []);
+        var afterDates = dm[3];
+        var phoneM = afterDates.match(/^([\s\S]*?)\s+(\d{2,3}-\d{3,4}-\d{4})\s+([\s\S]*)$/);
+        var color = "";
+        var vin = "";
+        var model = "";
+        var plate = "";
+        var name = "";
+        var phone = "";
+        var afterPhone = afterDates;
+        if (phoneM) {
+          var mid = phoneM[1].trim().split(/\s+/);
+          color = mid[0] || "";
+          vin = mid[1] || "";
+          model = mid[2] || "";
+          plate = mid[3] || "";
+          name = mid.slice(4).join(" ");
+          phone = phoneM[2];
+          afterPhone = phoneM[3];
+        }
+        var slashAt = afterPhone.search(/(?:^|\s)\//);
+        var waiting = "";
+        var frt = "";
+        var paint = "";
+        var work = afterPhone;
+        var advisor = "";
+        var insurer = "";
+        if (slashAt >= 0) {
+          var before = afterPhone.slice(0, slashAt).trim().split(/\s+/).filter(Boolean);
+          waiting = before[0] || "";
+          frt = before[1] || "";
+          paint = before[2] || "";
+          work = afterPhone.slice(slashAt).trim();
+          var tail = work.match(/^(\/[\s\S]*?)\s+([가-힣]{2,5})\s+(\d+)\s+(\S+)([\s\S]*)$/);
+          if (tail) {
+            work = tail[1].trim();
+            advisor = tail[2];
+            insurer = tail[4];
+          }
+        }
+        return [
+          sv, dm[1], dm[2], color, vin, model, plate, name, phone,
+          waiting, frt, paint, work, advisor, "", insurer
+        ];
+      }
+
+      function parseTsv(text) {
+        var src = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        var rows = [];
+        var row = [];
+        var cell = "";
+        var i = 0;
+        var inQuotes = false;
+        while (i < src.length) {
+          var ch = src.charAt(i);
+          if (inQuotes) {
+            if (ch === '"') {
+              if (src.charAt(i + 1) === '"') {
+                cell += '"';
+                i += 2;
+                continue;
+              }
+              inQuotes = false;
+              i += 1;
+              continue;
+            }
+            cell += ch;
+            i += 1;
+            continue;
+          }
+          if (ch === '"') {
+            inQuotes = true;
+            i += 1;
+            continue;
+          }
+          if (ch === "\t") {
+            row.push(cell.trim());
+            cell = "";
+            i += 1;
+            continue;
+          }
+          if (ch === "\n") {
+            row.push(cell.trim());
+            cell = "";
+            if (row.some(function (c) { return c; })) rows.push(row);
+            row = [];
+            i += 1;
+            continue;
+          }
+          cell += ch;
+          i += 1;
+        }
+        row.push(cell.trim());
+        if (row.some(function (c) { return c; })) rows.push(row);
+        return rows;
+      }
+
+      function splitPasteLine(line) {
+        var s = String(line || "").replace(/\r/g, "");
+        if (s.indexOf("\t") !== -1) {
+          return s.split("\t").map(function (c) { return c.trim(); });
+        }
+        return s.trim() ? s.trim().split(/\s{2,}/) : [];
+      }
+
+      function headerKey(name) {
+        var n = String(name || "").replace(/\s+/g, "").replace(/"/g, "");
+        if (/^(sv|sv#|sv번호|ro|ro#|작업번호|서비스번호)$/i.test(n)) return "sv";
+        if (/접수번호|사고번호|^claim$/i.test(n)) return "claimNo";
+        if (/작업내용|작업사항|수리내용/i.test(n)) return "workNotes";
+        if (/^견적자$/i.test(n)) return "advisor";
+        if (/접수담당자|어드바이저|advisor|^sa$/i.test(n)) return "advisor";
+        if (/차량번호|번호판|plate|licen/i.test(n)) return "plate";
+        if (/차대|^vin$/i.test(n)) return "vin";
+        if (/^차종$|^모델$|model/i.test(n)) return "model";
+        if (/고객성함|고객성명|고객명|^성명$|^이름$|customername/i.test(n)) return "name";
+        if (/연락처|전화|휴대폰|^hp$|phone|mobile/i.test(n)) return "phone";
+        if (/입고일|^입고$/i.test(n)) return "inDate";
+        if (/출고일|^출고$/i.test(n)) return "outDate";
+        if (/보험사|보험회사|carrier/i.test(n)) return "insurer";
+        if (/수리유형|^유형$|보증|보험유형|paytype|자차|대물/i.test(n)) return "repairType";
+        return "";
+      }
+
+      function mappingFromHeader(cells) {
+        var map = {};
+        cells.forEach(function (c, i) {
+          var k = headerKey(c);
+          if (k && map[k] == null) map[k] = i;
         });
+        if (map.sv != null || map.vin != null || map.workNotes != null) return map;
+        return null;
       }
 
-      function saveFileHandle(handle) {
-        if (!handle) return Promise.resolve();
-        return openHandleDb().then(function (db) {
-          return new Promise(function (resolve, reject) {
-            var tx = db.transaction(FILE_HANDLE_STORE, "readwrite");
-            tx.objectStore(FILE_HANDLE_STORE).put(handle, FILE_HANDLE_KEY);
-            tx.oncomplete = function () { resolve(); };
-            tx.onerror = function () { reject(tx.error); };
-          });
-        }).catch(function () { /* ignore */ });
-      }
-
-      function loadFileHandle() {
-        return openHandleDb().then(function (db) {
-          return new Promise(function (resolve, reject) {
-            var tx = db.transaction(FILE_HANDLE_STORE, "readonly");
-            var req = tx.objectStore(FILE_HANDLE_STORE).get(FILE_HANDLE_KEY);
-            req.onsuccess = function () { resolve(req.result || null); };
-            req.onerror = function () { reject(req.error); };
-          });
-        }).catch(function () { return null; });
-      }
-
-      function ensureHandlePermission(handle) {
-        if (!handle || !handle.queryPermission) return Promise.resolve(false);
-        return handle.queryPermission({ mode: "read" }).then(function (st) {
-          if (st === "granted") return true;
-          if (!handle.requestPermission) return false;
-          return handle.requestPermission({ mode: "read" }).then(function (st2) {
-            return st2 === "granted";
-          });
-        }).catch(function () { return false; });
-      }
-
-      function readWorkbook(buf, fileName, quiet) {
-        if (typeof XLSX === "undefined") {
-          setStatus("엑셀 라이브러리를 불러오지 못했습니다. 칸을 직접 입력하세요.", "err");
-          return;
+      function mappingFromSvCell(cells) {
+        var svIdx = -1;
+        for (var i = 0; i < cells.length; i++) {
+          if (looksLikeSv(cells[i])) { svIdx = i; break; }
         }
-        var wb = XLSX.read(buf, { type: "array", cellDates: true });
-        var names = wb.SheetNames || [];
-        if (!names.length) {
-          setStatus("시트 없는 파일입니다.", "err");
-          return;
-        }
-        var sheetName = pickSheet(names);
-        var ws = wb.Sheets[sheetName];
-        var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
-        ingestMatrix(matrix, sheetName, fileName, quiet);
+        if (svIdx < 0) return null;
+        return {
+          sv: svIdx,
+          inDate: svIdx + 1,
+          outDate: svIdx + 2,
+          vin: svIdx + 4,
+          model: svIdx + 5,
+          plate: svIdx + 6,
+          name: svIdx + 7,
+          phone: svIdx + 8,
+          workNotes: svIdx + 12,
+          advisor: svIdx + 13,
+          insurer: svIdx + 15
+        };
       }
 
-      function readFileBlob(file, quiet) {
-        return new Promise(function (resolve, reject) {
-          var name = (file && file.name) || SHAREPOINT_FILE;
-          var isCsv = /\.csv$/i.test(name);
-          var reader = new FileReader();
-          reader.onerror = function () { reject(new Error("파일을 읽지 못했습니다.")); };
-          reader.onload = function () {
-            try {
-              if (isCsv) ingestMatrix(parseCsv(String(reader.result || "")), "CSV", name, quiet);
-              else readWorkbook(new Uint8Array(reader.result), name, quiet);
-              resolve();
-            } catch (e) {
-              reject(e);
-            }
-          };
-          if (isCsv) reader.readAsText(file, "utf-8");
-          else reader.readAsArrayBuffer(file);
+      function recFromCells(cells, map) {
+        function at(key) {
+          var i = map[key];
+          if (i == null || i < 0 || i >= cells.length) return "";
+          return cells[i];
+        }
+        var sv = extractSv(at("sv")) || extractSv(cells[0]);
+        if (!looksLikeSv(sv)) return null;
+        return {
+          sv: sv,
+          advisor: cellStr(at("advisor")),
+          plate: cellStr(at("plate")),
+          vin: cellStr(at("vin")),
+          model: cellStr(at("model")),
+          name: cellStr(at("name")),
+          phone: cellStr(at("phone")),
+          inDate: cellStr(at("inDate")),
+          outDate: cellStr(at("outDate")),
+          insurer: cellStr(at("insurer")),
+          claimNo: cellStr(at("claimNo")),
+          repairType: cellStr(at("repairType")),
+          workNotes: cellStr(at("workNotes"))
+        };
+      }
+
+      function parsePastedText(text, html) {
+        var matrix = matrixFromHtml(html);
+        if (!matrix.length) matrix = parseTsv(text);
+        if (!matrix.length) {
+          var lines = String(text || "").split(/\r?\n/).filter(function (ln) {
+            return ln.replace(/\t/g, "").trim();
+          });
+          matrix = lines.map(splitPasteLine);
+        }
+        matrix = matrix.map(function (cells) {
+          if (cells.length >= 12) return cells;
+          if (cells.length <= 2 && extractSv(cells.join(" "))) {
+            return splitLooseSchedule(cells.join("\t") || cells[0]);
+          }
+          return cells;
         });
-      }
-
-      function onFile(file) {
-        if (!file) return Promise.resolve();
-        setStatus((file.name || SHAREPOINT_FILE) + " 읽는 중…");
-        return readFileBlob(file, false);
-      }
-
-      function reloadFromHandle(quiet) {
-        if (!state.fileHandle) return Promise.resolve(false);
-        return ensureHandlePermission(state.fileHandle).then(function (ok) {
-          if (!ok) return false;
-          return state.fileHandle.getFile().then(function (file) {
-            return readFileBlob(file, quiet).then(function () { return true; });
-          });
-        }).catch(function () { return false; });
-      }
-
-      function connectSavedFile() {
-        if (!window.showOpenFilePicker) {
-          document.getElementById("xlsxFile").click();
-          return;
+        if (!matrix.length) return [];
+        var first = matrix[0].slice();
+        var headerMap = mappingFromHeader(first);
+        if (headerMap && first.some(looksLikeSv)) headerMap = null;
+        var start = 0;
+        var fallbackMap = null;
+        if (headerMap) {
+          start = 1;
+          while (start < matrix.length) {
+            var extra = matrix[start];
+            if (extra.some(looksLikeSv)) break;
+            first = first.concat(extra);
+            headerMap = mappingFromHeader(first);
+            start += 1;
+          }
+        } else {
+          fallbackMap = mappingFromSvCell(first) || mappingFromSvCell(splitLooseSchedule(first.join(" ")));
+          if (!fallbackMap) return [];
         }
-        window.showOpenFilePicker({
-          multiple: false,
-          types: [{
-            description: "Excel",
-            accept: {
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-              "application/vnd.ms-excel": [".xls"],
-              "text/csv": [".csv"]
-            }
-          }]
-        }).then(function (handles) {
-          var handle = handles && handles[0];
-          if (!handle) return;
-          state.fileHandle = handle;
-          saveFileHandle(handle);
-          return handle.getFile().then(function (file) {
-            setStatus(file.name + " 연결 중…");
-            return readFileBlob(file, false);
-          });
-        }).catch(function (e) {
-          if (e && e.name === "AbortError") return;
-          setStatus("파일을 연결하지 못했습니다. 다시 선택하세요.", "err");
+        var out = [];
+        for (var r = start; r < matrix.length; r++) {
+          var cells = matrix[r];
+          var map = headerMap || mappingFromSvCell(cells) || fallbackMap;
+          if (!map) continue;
+          var rec = recFromCells(cells, map);
+          if (rec) out.push(rec);
+        }
+        return out;
+      }
+
+      function mergeRows(incoming) {
+        var bySv = {};
+        state.rows.forEach(function (r) {
+          var k = normSv(r.sv);
+          if (k) bySv[k] = r;
         });
+        incoming.forEach(function (r) {
+          var k = normSv(r.sv);
+          if (k) bySv[k] = r;
+        });
+        state.rows = Object.keys(bySv).map(function (k) { return bySv[k]; });
+        state.source = "엑셀 붙여넣기";
+        state.updatedAt = todayISO();
+        state.sheetName = "붙여넣기";
       }
 
-      function lookupAfterLoad(q) {
-        var key = normSv(q);
-        if (!key) {
-          setStatus("SV를 입력하세요.", "err");
+      function applyPastedText(text, html) {
+        var rows = parsePastedText(text, html);
+        if (!rows.length) {
+          setStatus("붙여넣은 내용에서 SV 행을 찾지 못했습니다. 스케줄관리 시트에서 SV가 있는 행을 복사하세요.", "err");
           return;
         }
-        var run = function () { lookup(key); };
-        if (state.fileHandle) {
-          setStatus("최신 스케줄 읽는 중…");
-          reloadFromHandle(true).then(function (ok) {
-            if (!ok && !state.rows.length) {
-              setStatus("저장된 파일을 다시 연결하세요. SharePoint 탭만 연 상태에서는 읽을 수 없습니다.", "warn");
-              return;
-            }
-            run();
-          });
-          return;
+        mergeRows(rows);
+        var pick = rows[0];
+        if (form.sv.value) {
+          var want = normSv(form.sv.value);
+          pick = rows.find(function (r) { return normSv(r.sv) === want; }) ||
+            rows.find(function (r) { return normSv(r.sv).indexOf(want) !== -1; }) ||
+            pick;
         }
-        run();
+        applyRow(pick, true);
+        setStatus(rows.length + "행 반영 · " + cellStr(pick.sv) + " 채움", "ok");
       }
 
-      document.getElementById("btnPickExcel").addEventListener("click", connectSavedFile);
-      document.getElementById("btnReloadExcel").addEventListener("click", function () {
-        if (state.fileHandle) {
-          setStatus("다시 읽는 중…");
-          reloadFromHandle(false).then(function (ok) {
-            if (!ok) setStatus("파일을 다시 연결하세요.", "warn");
-          });
+      function loadEmbeddedLookup() {
+        var el = document.getElementById("svLookup");
+        var data = { updatedAt: "", source: "", sheet: "", rows: [] };
+        try {
+          data = JSON.parse((el && el.textContent) || "{}") || data;
+        } catch (e) {
+          setStatus(EMPTY_HINT, "warn");
           return;
         }
-        document.getElementById("xlsxFile").click();
-      });
-      document.getElementById("xlsxFile").addEventListener("change", function (e) {
-        onFile(e.target.files && e.target.files[0]);
-        e.target.value = "";
-      });
-      document.addEventListener("dragover", function (e) {
-        e.preventDefault();
-        document.body.classList.add("drop-on");
-      });
-      document.addEventListener("dragleave", function (e) {
-        if (!e.relatedTarget) document.body.classList.remove("drop-on");
-      });
-      document.addEventListener("drop", function (e) {
-        e.preventDefault();
-        document.body.classList.remove("drop-on");
-        var item = e.dataTransfer && e.dataTransfer.items && e.dataTransfer.items[0];
-        if (item && item.getAsFileSystemHandle) {
-          item.getAsFileSystemHandle().then(function (handle) {
-            if (!handle || handle.kind !== "file") {
-              var f = e.dataTransfer.files && e.dataTransfer.files[0];
-              if (f) onFile(f);
-              return;
-            }
-            state.fileHandle = handle;
-            saveFileHandle(handle);
-            return handle.getFile().then(function (file) {
-              setStatus(file.name + " 연결 중…");
-              return readFileBlob(file, false);
-            });
-          }).catch(function () {
-            var f = e.dataTransfer.files && e.dataTransfer.files[0];
-            if (f) onFile(f);
-          });
+        state.rows = Array.isArray(data.rows) ? data.rows : [];
+        state.updatedAt = data.updatedAt || "";
+        state.source = data.source || "";
+        state.sheetName = data.sheet || "";
+        if (!state.rows.length) {
+          setStatus(EMPTY_HINT, "warn");
           return;
         }
-        var dropped = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (dropped) onFile(dropped);
-      });
+        var bits = [state.rows.length + "건"];
+        if (state.updatedAt) bits.push(state.updatedAt);
+        if (state.source) bits.push(state.source);
+        setStatus(bits.join(" · ") + ". SV를 입력하세요.", "ok");
+      }
+
       form.sv.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
           suggestEl.style.display = "none";
-          lookupAfterLoad(form.sv.value);
+          lookup(form.sv.value);
         }
       });
       form.sv.addEventListener("input", function () { suggest(form.sv.value); });
       form.sv.addEventListener("blur", function () {
         setTimeout(function () { suggestEl.style.display = "none"; }, 180);
-        if (form.sv.value) lookupAfterLoad(form.sv.value);
+        if (form.sv.value) lookup(form.sv.value);
       });
-      loadFileHandle().then(function (handle) {
-        if (!handle) return;
-        state.fileHandle = handle;
-        reloadFromHandle(false).then(function (ok) {
-          if (!ok) {
-            setStatus("이전에 연결한 스케줄 파일이 있습니다. 「스케줄 파일 연결」을 한 번 누르면 이어서 씁니다.", "warn");
-          }
-        });
+      loadEmbeddedLookup();
+      document.querySelectorAll(".car-hit img").forEach(function (img) {
+        if (!img.complete) {
+          img.addEventListener("load", function () { markPanelsFromNotes(); });
+        }
+      });
+
+      var pastePanel = document.getElementById("pastePanel");
+      var pasteBox = document.getElementById("pasteBox");
+      var pasteBtn = document.getElementById("btnPasteExcel");
+      function syncPasteToggle() {
+        var closed = pastePanel.classList.contains("closed");
+        pasteBtn.textContent = closed ? "붙여넣기 보기" : "붙여넣기 숨기기";
+      }
+      pasteBtn.addEventListener("click", function () {
+        pastePanel.classList.toggle("closed");
+        syncPasteToggle();
+        if (!pastePanel.classList.contains("closed")) pasteBox.focus();
+      });
+      pasteBox.focus();
+      document.getElementById("btnApplyPaste").addEventListener("click", function () {
+        applyPastedText(pasteBox.value, "");
+      });
+      document.getElementById("btnClearPaste").addEventListener("click", function () {
+        pasteBox.value = "";
+        pasteBox.focus();
+      });
+      pasteBox.addEventListener("paste", function (e) {
+        var html = e.clipboardData && e.clipboardData.getData("text/html");
+        var clip = (e.clipboardData && (e.clipboardData.getData("text/plain") || e.clipboardData.getData("text"))) || "";
+        if (clip || html) {
+          e.preventDefault();
+          pasteBox.value = clip || pasteBox.value;
+          applyPastedText(clip, html);
+          return;
+        }
+        setTimeout(function () { applyPastedText(pasteBox.value, ""); }, 0);
       });
 
       document.querySelectorAll("#legend button").forEach(function (btn) {
@@ -1201,6 +1471,15 @@
       }
       window.addEventListener("beforeprint", fitPrintPage);
       window.addEventListener("afterprint", clearPrintFit);
+      window.addEventListener("resize", function () {
+        applyNotesLayout(joinedWorkNotes());
+      });
+      form.damageNotesLeft.addEventListener("input", function () {
+        applyNotesLayout(joinedWorkNotes());
+      });
+      form.damageNotesRight.addEventListener("input", function () {
+        applyNotesLayout(joinedWorkNotes());
+      });
       document.getElementById("btnPrint").addEventListener("click", function () {
         fitPrintPage();
         window.print();
@@ -1208,6 +1487,7 @@
       document.getElementById("btnReset").addEventListener("click", function () {
         if (!confirm("입력 내용과 손상 표시를 모두 지울까요?")) return;
         form.reset();
+        dmgRow.classList.remove("notes-split");
         document.querySelectorAll(".dmg-marker").forEach(function (m) { m.remove(); });
         form.inDate.value = todayISO();
         syncCarrierOther();
