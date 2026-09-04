@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tesla Collision Dongtan Center</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --ink: #171a20;
@@ -35,7 +36,9 @@
       color: #fff;
     }
     .toolbar span { font-size: 0.88rem; opacity: 0.88; margin-right: auto; }
-    .toolbar button {
+    .toolbar a,
+    .toolbar button,
+    .toolbar label.file-btn {
       font: inherit;
       border: 0;
       border-radius: 8px;
@@ -43,8 +46,55 @@
       cursor: pointer;
       background: #fff;
       color: var(--ink);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
     }
     .toolbar button.primary { background: var(--accent); color: #fff; }
+    .toolbar input[type="file"] { display: none; }
+    .excel-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.8rem;
+      align-items: center;
+      padding: 0.4rem 1rem;
+      background: #eceff3;
+      color: var(--muted);
+      font-size: 0.82rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .excel-bar.ok { color: #047857; }
+    .excel-bar.warn { color: #b45309; }
+    .excel-bar.err { color: #b91c1c; }
+    body.drop-on { outline: 3px dashed var(--accent); outline-offset: -6px; }
+    .sv-cell { position: relative; }
+    .sv-suggest {
+      display: none;
+      position: absolute;
+      z-index: 30;
+      left: 0;
+      right: 0;
+      top: 100%;
+      margin-top: 2px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      max-height: 12rem;
+      overflow: auto;
+    }
+    .sv-suggest button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      font-size: 0.88rem;
+      border: 0;
+      background: #fff;
+      padding: 0.45rem 0.65rem;
+      cursor: pointer;
+    }
+    .sv-suggest button:hover { background: #f4f5f7; }
     .wrap {
       max-width: 1180px;
       margin: 1rem auto 2.5rem;
@@ -390,10 +440,14 @@
 <body>
   <div class="toolbar no-print">
     <span>입고 운영 체크 · SV · 고객 · 자차/대물 · 360 손상</span>
+    <a id="spLink" href="https://teslamotorsinc-my.sharepoint.com/:x:/r/personal/sangtlee_tesla_com/_layouts/15/Doc.aspx?sourcedoc=%7B5DC9F3E2-C1AD-4EB1-871F-EF051296F285%7D&amp;file=%25uc2a4%25ucf00%25uc974%20%25uad00%25ub9ac_%25uacf5%25uc720%25ud30c%25uc77c.xlsx&amp;wdLOR=cE48CE858-AEAB-43B5-BBD0-2725AF30CCCE&amp;fromShare=true&amp;action=default&amp;mobileredirect=true" target="_blank" rel="noopener">원본 열기</a>
+    <label class="file-btn" for="xlsxFile">엑셀 불러오기</label>
+    <input type="file" id="xlsxFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
     <button type="button" id="btnClearMarks">손상 표시 지우기</button>
     <button type="button" id="btnReset">양식 초기화</button>
     <button type="button" class="primary" id="btnPrint">인쇄 / PDF 저장</button>
   </div>
+  <div class="excel-bar no-print" id="loadStatus">스케줄 xlsx를 불러오거나 창에 끌어다 놓은 뒤 SV를 입력하세요. 원본 열기는 SharePoint 확인용입니다.</div>
 
   <div class="wrap">
     <header class="page-head">
@@ -406,7 +460,10 @@
       <section class="card">
         <h2>접수 · 일정</h2>
         <div class="grid g4">
-          <label class="f">SV 번호<input type="text" name="sv" /></label>
+          <label class="f sv-cell">SV 번호
+            <input type="text" name="sv" id="svInput" placeholder="SV 입력 후 Enter" autocomplete="off" spellcheck="false" />
+            <div id="svSuggest" class="sv-suggest"></div>
+          </label>
           <label class="f">접수담당자<input type="text" name="advisor" /></label>
           <label class="f">입고일<input type="date" name="inDate" /></label>
           <label class="f">출고일<input type="date" name="outDate" /></label>
@@ -524,6 +581,25 @@
       var form = document.getElementById("ops");
       var carrier = document.getElementById("carrier");
       var otherWrap = document.getElementById("carrierOtherWrap");
+      var statusEl = document.getElementById("loadStatus");
+      var suggestEl = document.getElementById("svSuggest");
+      var SHAREPOINT_FILE = "스케줄 관리_공유파일.xlsx";
+      var SKIP_SHEETS = /작업지시|보험사|외주|로니카|회수|부품|upcoming|sheet1|추가/i;
+      var FIELDS = [
+        { key: "sv", letterHint: "C", re: /^(sv|sv#|sv번호|ro|ro#|작업번호|서비스번호)$/i },
+        { key: "advisor", re: /접수|담당자|advisor|^sa$|어드바이저/i },
+        { key: "plate", re: /차량번호|번호판|plate|licen/i },
+        { key: "vin", re: /차대|vin/i },
+        { key: "model", re: /차종|^모델$|model/i },
+        { key: "name", letterHint: "J", re: /고객성명|고객명|^성명$|^이름$|customer\s*name/i },
+        { key: "phone", re: /연락처|전화|휴대폰|^hp$|phone|mobile/i },
+        { key: "inDate", re: /입고일|^입고$/i },
+        { key: "outDate", re: /출고일|^출고$/i },
+        { key: "insurer", re: /보험사|보험회사|carrier/i },
+        { key: "claimNo", re: /접수번호|사고번호|claim/i },
+        { key: "repairType", re: /수리\s*유형|^유형$|보증|보험유형|pay\s*type|자차|대물/i }
+      ];
+      var state = { rows: [], headers: [], map: {}, sheetName: "", fileName: "" };
       form.addEventListener("submit", function (e) { e.preventDefault(); });
 
       function todayISO() {
@@ -540,6 +616,378 @@
         if (!show) form.carrierOther.value = "";
       }
       carrier.addEventListener("change", syncCarrierOther);
+
+      function setStatus(msg, kind) {
+        statusEl.textContent = msg;
+        statusEl.className = "excel-bar no-print" + (kind ? " " + kind : "");
+      }
+
+      function colLetter(idx) {
+        var n = idx + 1;
+        var s = "";
+        while (n > 0) {
+          var m = (n - 1) % 26;
+          s = String.fromCharCode(65 + m) + s;
+          n = Math.floor((n - 1) / 26);
+        }
+        return s;
+      }
+
+      function letterIndex(letter) {
+        var n = 0;
+        var s = String(letter || "").toUpperCase();
+        for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+        return n - 1;
+      }
+
+      function normSv(v) {
+        return String(v == null ? "" : v).trim().toUpperCase().replace(/\s+/g, "");
+      }
+
+      function cellStr(v) {
+        if (v == null || v === "") return "";
+        if (v instanceof Date && !isNaN(v.getTime())) return parseToYmd(v);
+        return String(v).trim();
+      }
+
+      function pad2(n) { return String(n).padStart(2, "0"); }
+
+      function formatYmd(y, m, d) {
+        return y + "-" + pad2(m) + "-" + pad2(d);
+      }
+
+      function formatDate(d, utc) {
+        if (utc) return formatYmd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+        return formatYmd(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      }
+
+      function excelSerialToYmd(n) {
+        if (typeof n !== "number" || !isFinite(n) || n < 1) return "";
+        var ms = Math.round((n - 25569) * 86400 * 1000);
+        var d = new Date(ms);
+        if (isNaN(d.getTime())) return "";
+        return formatDate(d, true);
+      }
+
+      function parseToYmd(v) {
+        if (v == null || v === "") return "";
+        if (v instanceof Date && !isNaN(v.getTime())) {
+          var y = v.getFullYear();
+          if (y < 1990 && v.getUTCFullYear() >= 1990) return formatDate(v, true);
+          return formatDate(v, false);
+        }
+        if (typeof v === "number") return excelSerialToYmd(v);
+        var s = String(v).trim();
+        if (!s) return "";
+        if (/^\d+(\.\d+)?$/.test(s)) return excelSerialToYmd(Number(s));
+        var iso = s.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+        if (iso) return formatYmd(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+        var kr = s.match(/^(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})/);
+        if (kr) return formatYmd(Number(kr[1]), Number(kr[2]), Number(kr[3]));
+        var md = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+        if (md) {
+          var yy = Number(md[3]);
+          if (yy < 100) yy += 2000;
+          return formatYmd(yy, Number(md[1]), Number(md[2]));
+        }
+        return "";
+      }
+
+      function parseCsv(text) {
+        var rows = [];
+        var row = [];
+        var cur = "";
+        var q = false;
+        var src = text.replace(/^\uFEFF/, "");
+        for (var i = 0; i < src.length; i++) {
+          var ch = src[i];
+          if (q) {
+            if (ch === '"') {
+              if (src[i + 1] === '"') { cur += '"'; i++; }
+              else q = false;
+            } else cur += ch;
+          } else if (ch === '"') q = true;
+          else if (ch === ",") { row.push(cur); cur = ""; }
+          else if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+          else if (ch !== "\r") cur += ch;
+        }
+        if (cur.length || row.length) { row.push(cur); rows.push(row); }
+        return rows;
+      }
+
+      function headerRowIndex(matrix) {
+        var max = Math.min(matrix.length, 12);
+        var best = 0;
+        var bestScore = -1;
+        for (var r = 0; r < max; r++) {
+          var line = matrix[r] || [];
+          var texts = line.map(cellStr).filter(Boolean);
+          if (!texts.length) continue;
+          var score = texts.length;
+          var joined = texts.join(" ");
+          if (/sv|차량|고객|vin|입고/i.test(joined)) score += 8;
+          if (texts.filter(function (t) { return /^sv/i.test(t); }).length) score += 4;
+          if (bestScore < score) { bestScore = score; best = r; }
+        }
+        return best;
+      }
+
+      function matrixToRows(matrix) {
+        var hi = headerRowIndex(matrix);
+        var headerCells = matrix[hi] || [];
+        var headers = headerCells.map(function (h, i) {
+          var t = cellStr(h);
+          return t || ("열" + colLetter(i));
+        });
+        var rows = [];
+        for (var r = hi + 1; r < matrix.length; r++) {
+          var line = matrix[r] || [];
+          if (!line.some(function (c) { return cellStr(c) !== ""; })) continue;
+          rows.push({ _cells: line.slice() });
+        }
+        return {
+          headers: headers.map(function (h, i) { return { name: h, letter: colLetter(i), index: i }; }),
+          rows: rows
+        };
+      }
+
+      function pickSheet(names) {
+        var exact = names.find(function (n) {
+          return /스케줄\s*관리/.test(n) || n.replace(/\s/g, "") === "스케줄관리";
+        });
+        if (exact) return exact;
+        var data = names.filter(function (n) { return !SKIP_SHEETS.test(n); });
+        return data[0] || names[0];
+      }
+
+      function autoMap(headers) {
+        var map = {};
+        var used = {};
+        FIELDS.forEach(function (f) {
+          var hit = headers.find(function (h) { return !used[h.index] && f.re.test(h.name); });
+          if (hit) {
+            map[f.key] = hit.index;
+            used[hit.index] = true;
+          }
+        });
+        FIELDS.forEach(function (f) {
+          if (map[f.key] != null || !f.letterHint) return;
+          var idx = letterIndex(f.letterHint);
+          if (idx >= 0 && idx < headers.length && !used[idx]) {
+            map[f.key] = idx;
+            used[idx] = true;
+          }
+        });
+        if (map.sv == null && headers.length > 2) map.sv = 2;
+        if (map.name == null && headers.length > 9) map.name = 9;
+        return map;
+      }
+
+      function valFrom(rec, key) {
+        var idx = state.map[key];
+        if (idx == null) return "";
+        return rec._cells[idx];
+      }
+
+      function pickModel(raw) {
+        var s = cellStr(raw).toUpperCase().replace(/\s+/g, "");
+        if (!s) return "";
+        if (s === "3" || /MODEL3|모델3|^M3$/.test(s)) return "3";
+        if (s === "S" || /MODELS|모델S|^MS$/.test(s)) return "S";
+        if (s === "X" || /MODELX|모델X|^MX$/.test(s)) return "X";
+        if (s === "Y" || /MODELY|모델Y|^MY$/.test(s)) return "Y";
+        if (/CYBER|사이버|^C$|^CT$/.test(s)) return "C";
+        return "";
+      }
+
+      function setCarrier(raw) {
+        var name = cellStr(raw);
+        var opts = Array.prototype.slice.call(carrier.options).map(function (o) { return o.value; });
+        if (!name) {
+          carrier.value = "";
+          syncCarrierOther();
+          return;
+        }
+        var hit = opts.find(function (o) { return o && o !== "기타" && o === name; });
+        if (!hit) {
+          hit = opts.find(function (o) { return o && o !== "기타" && name.indexOf(o) !== -1; });
+        }
+        if (!hit) {
+          hit = opts.find(function (o) { return o && o !== "기타" && o.indexOf(name) !== -1; });
+        }
+        if (hit) {
+          carrier.value = hit;
+          syncCarrierOther();
+          return;
+        }
+        carrier.value = "기타";
+        syncCarrierOther();
+        form.carrierOther.value = name;
+      }
+
+      function setCover(raw) {
+        var s = cellStr(raw);
+        form.querySelectorAll('input[name="cover"]').forEach(function (el) {
+          el.checked = s.indexOf(el.value) !== -1;
+        });
+      }
+
+      function applyRow(rec, updateSv) {
+        var sv = cellStr(valFrom(rec, "sv"));
+        if (updateSv && sv) form.sv.value = sv;
+        form.advisor.value = cellStr(valFrom(rec, "advisor"));
+        var inYmd = parseToYmd(valFrom(rec, "inDate"));
+        var outYmd = parseToYmd(valFrom(rec, "outDate"));
+        if (inYmd) form.inDate.value = inYmd;
+        form.outDate.value = outYmd;
+        form.name.value = cellStr(valFrom(rec, "name"));
+        form.phone.value = cellStr(valFrom(rec, "phone"));
+        form.plate.value = cellStr(valFrom(rec, "plate"));
+        form.vin.value = cellStr(valFrom(rec, "vin"));
+        var model = pickModel(valFrom(rec, "model"));
+        form.querySelectorAll('input[name="model"]').forEach(function (el) {
+          el.checked = el.value === model;
+        });
+        setCarrier(valFrom(rec, "insurer"));
+        form.claim.value = cellStr(valFrom(rec, "claimNo"));
+        setCover(valFrom(rec, "repairType"));
+      }
+
+      function lookup(q) {
+        var key = normSv(q);
+        if (!key) {
+          setStatus("SV를 입력하세요.", "err");
+          return;
+        }
+        if (!state.rows.length) {
+          setStatus("엑셀을 먼저 불러오세요. 원본 열기는 SharePoint 확인용입니다.", "warn");
+          return;
+        }
+        var svIdx = state.map.sv;
+        if (svIdx == null) {
+          setStatus("SV 열을 찾지 못했습니다.", "err");
+          return;
+        }
+        var exact = state.rows.find(function (r) { return normSv(r._cells[svIdx]) === key; });
+        var loose = exact || state.rows.find(function (r) {
+          return normSv(r._cells[svIdx]).indexOf(key) !== -1;
+        });
+        if (!loose) {
+          setStatus("«" + key + "» 를 목록에서 찾지 못했습니다. 칸을 직접 입력하세요.", "warn");
+          return;
+        }
+        applyRow(loose, true);
+        setStatus((exact ? "정확 일치" : "부분 일치") + " · " + cellStr(loose._cells[svIdx]) + " · " + state.fileName + " · " + state.rows.length + "건", "ok");
+      }
+
+      function suggest(q) {
+        var key = normSv(q);
+        var svIdx = state.map.sv;
+        if (!key || key.length < 3 || svIdx == null || !state.rows.length) {
+          suggestEl.style.display = "none";
+          return;
+        }
+        var hits = [];
+        for (var i = 0; i < state.rows.length && hits.length < 12; i++) {
+          var sv = normSv(state.rows[i]._cells[svIdx]);
+          if (sv.indexOf(key) !== -1) hits.push(state.rows[i]);
+        }
+        suggestEl.innerHTML = "";
+        hits.forEach(function (r) {
+          var b = document.createElement("button");
+          b.type = "button";
+          var plate = cellStr(valFrom(r, "plate"));
+          b.textContent = cellStr(r._cells[svIdx]) + (plate ? "  ·  " + plate : "");
+          b.addEventListener("mousedown", function (e) {
+            e.preventDefault();
+            applyRow(r, true);
+            suggestEl.style.display = "none";
+            setStatus("목록에서 선택 · " + cellStr(r._cells[svIdx]), "ok");
+          });
+          suggestEl.appendChild(b);
+        });
+        suggestEl.style.display = hits.length ? "block" : "none";
+      }
+
+      function ingestMatrix(matrix, sheetName, fileName) {
+        var parsed = matrixToRows(matrix);
+        state.sheetName = sheetName;
+        state.fileName = fileName;
+        state.headers = parsed.headers;
+        state.rows = parsed.rows;
+        state.map = autoMap(parsed.headers);
+        var kind = state.rows.length ? "ok" : "warn";
+        setStatus(fileName + " · 시트 «" + sheetName + "» · " + state.rows.length + "건. SV를 입력하세요.", kind);
+      }
+
+      function readWorkbook(buf, fileName) {
+        if (typeof XLSX === "undefined") {
+          setStatus("엑셀 라이브러리를 불러오지 못했습니다. 칸을 직접 입력하세요.", "err");
+          return;
+        }
+        var wb = XLSX.read(buf, { type: "array", cellDates: true });
+        var names = wb.SheetNames || [];
+        if (!names.length) {
+          setStatus("시트 없는 파일입니다.", "err");
+          return;
+        }
+        var sheetName = pickSheet(names);
+        var ws = wb.Sheets[sheetName];
+        var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+        ingestMatrix(matrix, sheetName, fileName);
+      }
+
+      function onFile(file) {
+        if (!file) return;
+        var name = file.name || SHAREPOINT_FILE;
+        setStatus(name + " 읽는 중…");
+        var isCsv = /\.csv$/i.test(name);
+        var reader = new FileReader();
+        reader.onerror = function () { setStatus("파일을 읽지 못했습니다.", "err"); };
+        if (isCsv) {
+          reader.onload = function () {
+            try { ingestMatrix(parseCsv(String(reader.result || "")), "CSV", name); }
+            catch (e) { setStatus("CSV 파싱 오류: " + e.message, "err"); }
+          };
+          reader.readAsText(file, "utf-8");
+        } else {
+          reader.onload = function () {
+            try { readWorkbook(new Uint8Array(reader.result), name); }
+            catch (e) { setStatus("엑셀 파싱 오류: " + e.message, "err"); }
+          };
+          reader.readAsArrayBuffer(file);
+        }
+      }
+
+      document.getElementById("xlsxFile").addEventListener("change", function (e) {
+        onFile(e.target.files && e.target.files[0]);
+        e.target.value = "";
+      });
+      document.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        document.body.classList.add("drop-on");
+      });
+      document.addEventListener("dragleave", function (e) {
+        if (!e.relatedTarget) document.body.classList.remove("drop-on");
+      });
+      document.addEventListener("drop", function (e) {
+        e.preventDefault();
+        document.body.classList.remove("drop-on");
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) onFile(f);
+      });
+      form.sv.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          suggestEl.style.display = "none";
+          lookup(form.sv.value);
+        }
+      });
+      form.sv.addEventListener("input", function () { suggest(form.sv.value); });
+      form.sv.addEventListener("blur", function () {
+        setTimeout(function () { suggestEl.style.display = "none"; }, 180);
+        if (form.sv.value) lookup(form.sv.value);
+      });
 
       document.querySelectorAll("#legend button").forEach(function (btn) {
         btn.addEventListener("click", function () {
