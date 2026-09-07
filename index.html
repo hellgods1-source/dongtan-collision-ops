@@ -134,8 +134,9 @@
     .page-head h1 {
       grid-column: 2;
       margin: 0;
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #000;
       text-align: center;
     }
     .logo-mark {
@@ -152,18 +153,18 @@
     }
     .card {
       background: var(--card);
-      border: 1px solid var(--line);
+      border: 2px solid #111;
       border-radius: 12px;
       padding: 1rem 1.1rem 1.05rem;
       margin-bottom: 0.75rem;
     }
     .card h2 {
       margin: 0 0 0.75rem;
-      font-size: 0.82rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: none;
+      color: #000;
     }
     .grid {
       display: grid;
@@ -175,21 +176,21 @@
       display: flex;
       flex-direction: column;
       gap: 0.28rem;
-      font-size: 0.78rem;
-      color: var(--muted);
-      font-weight: 600;
+      font-size: 1.15rem;
+      color: #000;
+      font-weight: 700;
     }
     label.f input,
     label.f textarea,
     label.f select {
       font: inherit;
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--ink);
-      border: 1px solid var(--line);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #000;
+      border: 2px solid #111;
       border-radius: 8px;
       padding: 0.55rem 0.65rem;
-      background: #fafbfc;
+      background: #fff;
       width: 100%;
     }
     label.f input:focus,
@@ -261,13 +262,14 @@
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      border: 1px solid var(--line);
+      border: 2px solid #111;
       border-radius: 8px;
       padding: 0.5rem 0.85rem;
-      font-size: 0.95rem;
-      font-weight: 600;
+      font-size: 1.15rem;
+      font-weight: 700;
       cursor: pointer;
-      background: #fafbfc;
+      background: #fff;
+      color: #000;
     }
     .types input { width: 1.05rem; height: 1.05rem; accent-color: var(--ink); }
     .code-btns {
@@ -380,10 +382,10 @@
     }
     .car-box span {
       display: block;
-      font-size: 0.72rem;
-      color: var(--muted);
+      font-size: 0.95rem;
+      color: #000;
       margin-bottom: 0.15rem;
-      font-weight: 600;
+      font-weight: 700;
       flex-shrink: 0;
     }
     .car-hit {
@@ -412,13 +414,13 @@
     }
     .dmg-marker {
       position: absolute;
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      border: 1px solid #fff;
+      border: 2px solid #000;
       transform: translate(-50%, -50%);
       cursor: pointer;
-      box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+      box-shadow: 0 0 0 1px #000;
     }
     .dmg-row {
       display: grid;
@@ -446,7 +448,7 @@
     }
     .dmg-row.notes-split .notes-body textarea.memo:last-child {
       display: block;
-      border-left: 1px solid var(--line);
+      border-left: 2px solid #111;
       padding-left: 0.55rem;
       margin-left: 0.55rem;
     }
@@ -458,10 +460,12 @@
     }
     textarea.memo {
       flex: 1;
-      min-height: 16rem;
+      min-height: 18rem;
       resize: vertical;
-      font-size: 1.15rem;
-      font-weight: 700;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #000;
+      border: 2px solid #111;
       line-height: 1.45;
     }
     @media screen and (max-width: 800px) {
@@ -471,30 +475,94 @@
       .orbit { min-height: 26rem; }
     }
     @media print {
-      @page { size: A4 portrait; margin: 8mm; }
+      @page { size: A4 portrait; margin: 5mm; }
       html, body {
         background: #fff !important;
         margin: 0;
         padding: 0;
+        height: 100%;
+        color: #000;
       }
       body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        font-weight: 700;
       }
       .toolbar, .no-print { display: none !important; }
       .car-hit { outline: none !important; }
       .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
       .g2 { grid-template-columns: 1fr 1fr !important; }
-      .dmg-row { grid-template-columns: 1fr 1fr !important; }
+      .wrap {
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      form#ops {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .page-head { margin: 0 0 0.55rem; }
+      .page-head h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #000;
+      }
+      .card {
+        border: 2px solid #111;
+        margin-bottom: 0.45rem;
+      }
+      .card h2 {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #000;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      label.f {
+        font-size: 1.15rem;
+        color: #000;
+        font-weight: 700;
+      }
+      label.f input, label.f textarea, label.f select {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #000;
+        border: 2px solid #111;
+        background: #fff !important;
+      }
+      .types label {
+        border: 2px solid #111;
+        color: #000;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+      .car-box span {
+        font-size: 0.95rem;
+        color: #000;
+        font-weight: 700;
+      }
+      .dmg-row {
+        flex: 1;
+        min-height: 22rem;
+        grid-template-columns: 1fr 1fr !important;
+      }
       .dmg-row.notes-split .notes-body { grid-template-columns: 1fr 1fr !important; }
       .dmg-row.notes-split .notes-body textarea.memo:last-child {
         display: block !important;
-        border-left: 1px solid var(--line) !important;
+        border-left: 2px solid #111 !important;
         padding-left: 0.55rem !important;
         margin-left: 0.55rem !important;
       }
       .orbit {
         display: grid !important;
+        flex: 1;
+        min-height: 20rem;
         grid-template-columns: 0.8fr 1.4fr 0.8fr !important;
         grid-template-rows: minmax(0, 0.7fr) minmax(0, 2.2fr) minmax(0, 0.7fr) !important;
       }
@@ -503,17 +571,31 @@
       .orbit .top { grid-column: 2 !important; grid-row: 2 !important; }
       .orbit .right { grid-column: 3 !important; grid-row: 2 !important; }
       .orbit .rear { grid-column: 2 !important; grid-row: 3 !important; }
-      .wrap {
-        max-width: none;
-        width: 1180px;
-        margin: 0;
-        padding: 0 16px;
+      .orbit .front .car-hit,
+      .orbit .top .car-hit,
+      .orbit .rear .car-hit {
+        max-width: none !important;
+        width: 100% !important;
+      }
+      textarea.memo {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #000;
+        border: 2px solid #111;
+        min-height: 18rem;
+      }
+      .dmg-marker {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #000;
+        box-shadow: 0 0 0 1px #000;
       }
       label.f input, label.f textarea, label.f select, .car-hit {
         background: #fff !important;
       }
       .model-picks:has(input:checked) label:not(:has(input:checked)) { display: none !important; }
     }
+
   </style>
 </head>
 <body>
@@ -1613,12 +1695,12 @@
       function fitPrintPage() {
         var wrap = document.querySelector(".wrap");
         wrap.style.zoom = "1";
-        wrap.style.width = "1180px";
+        wrap.style.width = "100%";
         wrap.style.maxWidth = "none";
         var mm = 96 / 25.4;
-        var pageW = 210 * mm - 16 * mm;
-        var pageH = 297 * mm - 16 * mm;
-        var z = Math.min(pageW / wrap.scrollWidth, pageH / wrap.scrollHeight, 1);
+        var pageW = 210 * mm - 10 * mm;
+        var pageH = 297 * mm - 10 * mm;
+        var z = Math.min(pageW / wrap.scrollWidth, pageH / wrap.scrollHeight);
         wrap.style.zoom = String(z);
       }
       function clearPrintFit() {
