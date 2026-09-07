@@ -533,6 +533,42 @@
         margin-bottom: 0.35rem;
       }
       .ops-top .card:last-child { margin-bottom: 0; }
+      .ops-top .card:nth-child(2),
+      .ops-top .card:nth-child(3) {
+        padding: 0.55rem 0.75rem 0.5rem;
+        margin-bottom: 0.22rem;
+      }
+      .ops-top .card:nth-child(2) h2,
+      .ops-top .card:nth-child(3) h2 {
+        font-size: 1rem;
+        margin: 0 0 0.4rem;
+      }
+      .ops-top .card:nth-child(2) label.f,
+      .ops-top .card:nth-child(3) label.f {
+        font-size: 1.05rem;
+        gap: 0.15rem;
+      }
+      .ops-top .card:nth-child(2) label.f input,
+      .ops-top .card:nth-child(2) label.f select,
+      .ops-top .card:nth-child(3) label.f input,
+      .ops-top .card:nth-child(3) label.f select {
+        font-size: 1.05rem;
+        padding: 0.35rem 0.5rem;
+        min-height: 2.2rem;
+      }
+      .ops-top .card:nth-child(3) .types label {
+        font-size: 1.05rem;
+        padding: 0.35rem 0.65rem;
+      }
+      .ops-top .card:nth-child(3) .types input {
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+      .ops-top .card:nth-child(2) .model-picks label {
+        width: 1.7rem;
+        height: 1.7rem;
+        font-size: 0.88rem;
+      }
       .page-head { margin: 0 0 0.45rem; }
       .page-head h1 {
         font-size: 2.6rem;
@@ -1742,7 +1778,8 @@
       });
       function fitPrintPage() {
         var wrap = document.querySelector(".wrap");
-        wrap.style.zoom = "1";
+        wrap.style.zoom = "";
+        wrap.style.transform = "none";
         wrap.style.width = "";
         wrap.style.maxWidth = "";
         wrap.style.height = "auto";
@@ -1751,11 +1788,16 @@
         var pageW = 210 * mm - 10 * mm;
         var pageH = 297 * mm - 10 * mm;
         var z = Math.min(pageW / wrap.scrollWidth, pageH / wrap.scrollHeight, 1);
-        wrap.style.zoom = String(z);
+        wrap.style.transformOrigin = "top center";
+        wrap.style.transform = "scale(" + z + ")";
+        wrap.style.marginBottom = ((z - 1) * wrap.scrollHeight) + "px";
       }
       function clearPrintFit() {
         var wrap = document.querySelector(".wrap");
         wrap.style.zoom = "";
+        wrap.style.transform = "";
+        wrap.style.transformOrigin = "";
+        wrap.style.marginBottom = "";
         wrap.style.width = "";
         wrap.style.maxWidth = "";
       }
