@@ -494,16 +494,14 @@
         background: #fff !important;
         margin: 0;
         padding: 0;
-        height: 100%;
+        height: auto;
+        overflow: visible;
         color: #000;
       }
       body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
       }
       .toolbar, .no-print { display: none !important; }
       .car-hit { outline: none !important; }
@@ -517,8 +515,8 @@
       }
       form#ops {
         display: grid;
-        grid-template-rows: auto 1fr;
-        height: 26.5cm;
+        grid-template-rows: auto auto;
+        height: auto;
         min-height: 0;
         gap: 0.45rem;
       }
@@ -592,10 +590,12 @@
         font-weight: 700;
       }
       .dmg-row {
-        min-height: 0;
+        min-height: 22rem;
         height: auto;
+        overflow: visible;
         grid-template-columns: 1fr 1fr !important;
       }
+      .dmg-row > .card { overflow: visible; }
       .dmg-row.notes-split .notes-body { grid-template-columns: 1fr 1fr !important; }
       .dmg-row.notes-split .notes-body textarea.memo:last-child {
         display: block !important;
@@ -605,7 +605,8 @@
       }
       .orbit {
         display: grid !important;
-        min-height: 14rem;
+        overflow: visible;
+        min-height: 22rem;
         grid-template-columns: 0.8fr 1.4fr 0.8fr !important;
         grid-template-rows: minmax(0, 0.7fr) minmax(0, 2.2fr) minmax(0, 0.7fr) !important;
       }
@@ -625,7 +626,7 @@
         font-weight: 800;
         color: #000;
         border: 2px solid #111;
-        min-height: 14rem;
+        min-height: 18rem;
       }
       .dmg-marker {
         width: 14px;
@@ -1744,6 +1745,8 @@
         wrap.style.zoom = "1";
         wrap.style.width = "";
         wrap.style.maxWidth = "";
+        wrap.style.height = "auto";
+        wrap.style.overflow = "visible";
         var mm = 96 / 25.4;
         var pageW = 210 * mm - 10 * mm;
         var pageH = 297 * mm - 10 * mm;
