@@ -134,7 +134,7 @@
     .page-head h1 {
       grid-column: 2;
       margin: 0;
-      font-size: 1.75rem;
+      font-size: 2.6rem;
       font-weight: 800;
       color: #000;
       text-align: center;
@@ -507,18 +507,18 @@
       }
       .toolbar, .no-print { display: none !important; }
       .car-hit { outline: none !important; }
-      .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+      .g4 { grid-template-columns: 1fr 1fr !important; }
       .g2 { grid-template-columns: 1fr 1fr !important; }
       .wrap {
+        width: auto;
         max-width: none;
-        width: 100%;
         margin: 0;
         padding: 0;
       }
       form#ops {
         display: grid;
         grid-template-rows: 1fr 1fr;
-        height: 24cm;
+        height: 26.5cm;
         min-height: 0;
         gap: 0.45rem;
       }
@@ -539,7 +539,7 @@
       .ops-top .grid { flex: 1; align-content: stretch; }
       .page-head { margin: 0 0 0.45rem; }
       .page-head h1 {
-        font-size: 1.75rem;
+        font-size: 2.6rem;
         font-weight: 800;
         color: #000;
       }
@@ -1744,8 +1744,8 @@
       function fitPrintPage() {
         var wrap = document.querySelector(".wrap");
         wrap.style.zoom = "1";
-        wrap.style.width = "100%";
-        wrap.style.maxWidth = "none";
+        wrap.style.width = "";
+        wrap.style.maxWidth = "";
         var mm = 96 / 25.4;
         var pageW = 210 * mm - 10 * mm;
         var pageH = 297 * mm - 10 * mm;
