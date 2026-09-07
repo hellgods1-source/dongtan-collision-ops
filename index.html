@@ -494,9 +494,14 @@
         background: #fff !important;
         margin: 0;
         padding: 0;
-        height: auto;
-        overflow: visible;
+        height: 287mm;
+        max-height: 287mm;
+        overflow: hidden !important;
         color: #000;
+      }
+      .wrap {
+        transform-origin: top left;
+        transform: scale(var(--print-scale, 1));
       }
       body {
         -webkit-print-color-adjust: exact;
@@ -1780,17 +1785,24 @@
         var wrap = document.querySelector(".wrap");
         wrap.style.zoom = "";
         wrap.style.transform = "none";
+        wrap.style.marginRight = "";
+        wrap.style.marginBottom = "";
         wrap.style.width = "";
         wrap.style.maxWidth = "";
         wrap.style.height = "auto";
         wrap.style.overflow = "visible";
+        document.documentElement.style.setProperty("--print-scale", "1");
         var mm = 96 / 25.4;
-        var pageW = 210 * mm - 10 * mm;
-        var pageH = 297 * mm - 10 * mm;
-        var z = Math.min(pageW / wrap.scrollWidth, pageH / wrap.scrollHeight, 1);
-        wrap.style.transformOrigin = "top center";
+        var pageW = (window.innerWidth || 210 * mm) - 6;
+        var pageH = (window.innerHeight || 297 * mm) - 6;
+        var w = wrap.scrollWidth;
+        var h = wrap.scrollHeight;
+        var z = Math.min(pageW / w, pageH / h, 1);
+        wrap.style.transformOrigin = "top left";
         wrap.style.transform = "scale(" + z + ")";
-        wrap.style.marginBottom = ((z - 1) * wrap.scrollHeight) + "px";
+        wrap.style.marginRight = ((z - 1) * w) + "px";
+        wrap.style.marginBottom = ((z - 1) * h) + "px";
+        document.documentElement.style.setProperty("--print-scale", String(z));
       }
       function clearPrintFit() {
         var wrap = document.querySelector(".wrap");
@@ -1798,11 +1810,19 @@
         wrap.style.transform = "";
         wrap.style.transformOrigin = "";
         wrap.style.marginBottom = "";
+        wrap.style.marginRight = "";
         wrap.style.width = "";
         wrap.style.maxWidth = "";
+        document.documentElement.style.removeProperty("--print-scale");
       }
       window.addEventListener("beforeprint", fitPrintPage);
       window.addEventListener("afterprint", clearPrintFit);
+      if (window.matchMedia) {
+        var mql = window.matchMedia("print");
+        var onMql = function (e) { if (e.matches) fitPrintPage(); else clearPrintFit(); };
+        if (mql.addEventListener) mql.addEventListener("change", onMql);
+        else if (mql.addListener) mql.addListener(onMql);
+      }
       window.addEventListener("resize", function () {
         markPanelsFromNotes();
       });
