@@ -499,14 +499,18 @@
         overflow: hidden !important;
         color: #000;
       }
-      .wrap {
-        transform-origin: top left;
-        transform: translate(var(--print-tx, 0), var(--print-ty, 0)) scale(var(--print-scale, 1));
-      }
       body {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         font-weight: 700;
+      }
+      .wrap {
+        flex: 0 0 auto;
+        transform-origin: top left;
+        transform: scale(var(--print-scale, 1));
       }
       .toolbar, .no-print { display: none !important; }
       .car-hit { outline: none !important; }
@@ -1792,23 +1796,17 @@
         wrap.style.height = "auto";
         wrap.style.overflow = "visible";
         document.documentElement.style.setProperty("--print-scale", "1");
-        document.documentElement.style.setProperty("--print-tx", "0px");
-        document.documentElement.style.setProperty("--print-ty", "0px");
         var mm = 96 / 25.4;
-        var pageW = (window.innerWidth || 210 * mm) - 6;
-        var pageH = (window.innerHeight || 297 * mm) - 6;
+        var pageW = (200 * mm);
+        var pageH = (287 * mm);
         var w = wrap.scrollWidth;
         var h = wrap.scrollHeight;
         var z = Math.min(pageW / w, pageH / h, 1);
-        var tx = Math.max(0, (pageW - w * z) / 2);
-        var ty = Math.max(0, (pageH - h * z) / 2);
         wrap.style.transformOrigin = "top left";
-        wrap.style.transform = "translate(" + tx + "px, " + ty + "px) scale(" + z + ")";
+        wrap.style.transform = "scale(" + z + ")";
         wrap.style.marginRight = ((z - 1) * w) + "px";
         wrap.style.marginBottom = ((z - 1) * h) + "px";
         document.documentElement.style.setProperty("--print-scale", String(z));
-        document.documentElement.style.setProperty("--print-tx", tx + "px");
-        document.documentElement.style.setProperty("--print-ty", ty + "px");
       }
       function clearPrintFit() {
         var wrap = document.querySelector(".wrap");
@@ -1820,8 +1818,6 @@
         wrap.style.width = "";
         wrap.style.maxWidth = "";
         document.documentElement.style.removeProperty("--print-scale");
-        document.documentElement.style.removeProperty("--print-tx");
-        document.documentElement.style.removeProperty("--print-ty");
       }
       window.addEventListener("beforeprint", fitPrintPage);
       window.addEventListener("afterprint", clearPrintFit);
