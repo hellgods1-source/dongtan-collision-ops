@@ -1038,13 +1038,19 @@
         if (/PMBL|DBPB|MPMB|DEEPBLUE|MIDNIGHTBLUE|OCEANBLUE/i.test(up)) return "blue";
         if (/MHOT|STEALTHGREY|STEALTHGRAY|STEALTH/i.test(up)) return "gray";
         if (/QUICKSILVER|QUICKSILV/i.test(up)) return "silver";
-        if (/펄|진주/.test(s)) return "pearl";
-        if (/흰|화이트|WHITE/i.test(s)) return "white";
-        if (/검|블랙|BLACK/i.test(s)) return "black";
-        if (/은|실버|SILVER/i.test(s)) return "silver";
-        if (/회|그레이|그레이|GRAY|GREY/i.test(s)) return "gray";
-        if (/빨|적|레드|RED/i.test(s)) return "red";
-        if (/파|블루|남색|네이비|BLUE|NAVY/i.test(s)) return "blue";
+        var kr = s.replace(/[\s()\[\]/]+/g, "");
+        if (/다블|다이아몬드블랙|딥블랙/.test(kr)) return "black";
+        if (/프블|프리미엄블루|프로즌블루|펄블루|아이스블루|글레이셔블루/.test(kr)) return "blue";
+        if (/울레|올레|울트라레드|울트라래드/.test(kr)) return "red";
+        if (/스텔스|스텔스그레이|스텔스그레이/.test(kr)) return "gray";
+        if (/퀵실버|퀵실버/.test(kr)) return "silver";
+        if (/펄|진주/.test(kr)) return "pearl";
+        if (/흰|화이트|WHITE/i.test(kr)) return "white";
+        if (/블랙|검|BLACK/i.test(kr)) return "black";
+        if (/실버|은색|SILVER/i.test(kr)) return "silver";
+        if (/그레이|회색|GRAY|GREY/i.test(kr)) return "gray";
+        if (/레드|빨|적색|RED/i.test(kr)) return "red";
+        if (/블루|파랑|남색|네이비|BLUE|NAVY/i.test(kr)) return "blue";
         return "";
       }
 
