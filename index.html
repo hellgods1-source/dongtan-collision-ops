@@ -269,6 +269,13 @@
       background: var(--ink);
       color: #fff;
     }
+    .model-picks[data-plate-swatch="white"] label:has(input:checked) { background: #f2f2f2; color: #000; border-color: #111; }
+    .model-picks[data-plate-swatch="pearl"] label:has(input:checked) { background: #ffffff; color: #000; border-color: #111; }
+    .model-picks[data-plate-swatch="black"] label:has(input:checked) { background: #111; color: #fff; border-color: #111; }
+    .model-picks[data-plate-swatch="silver"] label:has(input:checked) { background: #c8ccd1; color: #000; border-color: #111; }
+    .model-picks[data-plate-swatch="gray"] label:has(input:checked) { background: #4b5058; color: #fff; border-color: #111; }
+    .model-picks[data-plate-swatch="red"] label:has(input:checked) { background: #c62828; color: #fff; border-color: #111; }
+    .model-picks[data-plate-swatch="blue"] label:has(input:checked) { background: #1e3a8a; color: #fff; border-color: #111; }
     .model-picks:has(input:checked):not(.open) label:not(:has(input:checked)) {
       display: none;
     }
@@ -610,6 +617,13 @@
         height: 1.7rem;
         font-size: 0.88rem;
       }
+      .model-picks[data-plate-swatch="white"] label:has(input:checked) { background: #f2f2f2 !important; color: #000 !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="pearl"] label:has(input:checked) { background: #ffffff !important; color: #000 !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="black"] label:has(input:checked) { background: #111 !important; color: #fff !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="silver"] label:has(input:checked) { background: #c8ccd1 !important; color: #000 !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="gray"] label:has(input:checked) { background: #4b5058 !important; color: #fff !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="red"] label:has(input:checked) { background: #c62828 !important; color: #fff !important; border-color: #111 !important; }
+      .model-picks[data-plate-swatch="blue"] label:has(input:checked) { background: #1e3a8a !important; color: #fff !important; border-color: #111 !important; }
       .page-head { margin: 0 0 0.45rem; }
       .page-head h1 {
         font-size: 2.6rem;
@@ -1012,6 +1026,28 @@
         return "";
       }
 
+      function pickColor(raw) {
+        var s = cellStr(raw);
+        if (!s) return "";
+        var up = s.toUpperCase().replace(/\s+/g, "");
+        if (/PPSW|MT905|MTS03|PPSWHITE|PEARLWHITE|PEARL/i.test(up)) return "pearl";
+        if (/PPSB|PBSB|MTS01|SOLIDBLACK/i.test(up)) return "black";
+        if (/MSSR|PMSS|PMNG|MIDNIGHTSILVER/i.test(up)) return "gray";
+        if (/PPMR|MSMR|MULTICOATRED|MULTI[- ]?COATRED/i.test(up)) return "red";
+        if (/PPSR|ULTRARED/i.test(up)) return "red";
+        if (/PMBL|DBPB|MPMB|DEEPBLUE|MIDNIGHTBLUE|OCEANBLUE/i.test(up)) return "blue";
+        if (/MHOT|STEALTHGREY|STEALTHGRAY|STEALTH/i.test(up)) return "gray";
+        if (/QUICKSILVER|QUICKSILV/i.test(up)) return "silver";
+        if (/펄|진주/.test(s)) return "pearl";
+        if (/흰|화이트|WHITE/i.test(s)) return "white";
+        if (/검|블랙|BLACK/i.test(s)) return "black";
+        if (/은|실버|SILVER/i.test(s)) return "silver";
+        if (/회|그레이|그레이|GRAY|GREY/i.test(s)) return "gray";
+        if (/빨|적|레드|RED/i.test(s)) return "red";
+        if (/파|블루|남색|네이비|BLUE|NAVY/i.test(s)) return "blue";
+        return "";
+      }
+
       function parseInsurerField(raw) {
         var s = cellStr(raw);
         var own = /자차/.test(s);
@@ -1363,7 +1399,11 @@
         form.querySelectorAll('input[name="model"]').forEach(function (el) {
           el.checked = el.value === model;
         });
-        document.querySelector(".model-picks").classList.remove("open");
+        var mp = document.querySelector(".model-picks");
+        mp.classList.remove("open");
+        var swatch = pickColor(valFrom(rec, "color"));
+        if (swatch) mp.dataset.plateSwatch = swatch;
+        else delete mp.dataset.plateSwatch;
         var ins = parseInsurerField(valFrom(rec, "insurer"));
         setCarrier(ins.name);
         form.claim.value = cellStr(valFrom(rec, "claimNo"));
@@ -1572,6 +1612,7 @@
         if (/차량번호|번호판|plate|licen/i.test(n)) return "plate";
         if (/차대|^vin$/i.test(n)) return "vin";
         if (/^차종$|^모델$|model/i.test(n)) return "model";
+        if (/색상|외장색|외장색상|차량색상|외관색|외장컬러|paint|colou?r/i.test(n)) return "color";
         if (/고객성함|고객성명|고객명|^성명$|^이름$|customername/i.test(n)) return "name";
         if (/연락처|전화|휴대폰|^hp$|phone|mobile/i.test(n)) return "phone";
         if (/입고일|^입고$/i.test(n)) return "inDate";
@@ -1601,6 +1642,7 @@
           sv: svIdx,
           inDate: svIdx + 1,
           outDate: svIdx + 2,
+          color: svIdx + 3,
           vin: svIdx + 4,
           model: svIdx + 5,
           plate: svIdx + 6,
@@ -1626,6 +1668,7 @@
           plate: cellStr(at("plate")),
           vin: cellStr(at("vin")),
           model: cellStr(at("model")),
+          color: cellStr(at("color")),
           name: cellStr(at("name")),
           phone: cellStr(at("phone")),
           inDate: cellStr(at("inDate")),
@@ -1899,6 +1942,7 @@
         if (!confirm("입력 내용과 손상 표시를 모두 지울까요?")) return;
         form.reset();
         modelPicks.classList.remove("open");
+        delete modelPicks.dataset.plateSwatch;
         dmgRow.classList.remove("notes-split");
         document.querySelectorAll(".dmg-marker").forEach(function (m) { m.remove(); });
         form.inDate.value = todayISO();
